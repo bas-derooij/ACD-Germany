@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ACD Germany · Dealer Leads</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">ACD</span>
+      <span class="brand-title">Dealer Leads Germany</span>
+    </div>
+    <div class="topbar-actions">
+      <label class="distance-setting" title="Leads closer together than this are flagged as too close">
+        Min. distance
+        <input id="minDistance" type="number" min="1" max="1000" step="1"> km
+      </label>
+      <button id="importBtn" class="btn ghost" type="button">Import CSV</button>
+      <a id="exportBtn" class="btn ghost" href="api/export.csv">Export CSV</a>
+      <button id="newLeadBtn" class="btn primary" type="button">+ New lead</button>
+      <input id="importFile" type="file" accept=".csv,text/csv" hidden>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="leads" role="tab">Leads <span id="leadCount" class="count"></span></button>
+        <button class="tab" data-tab="conflicts" role="tab">Too close <span id="conflictCount" class="count"></span></button>
+      </div>
+
+      <section id="tab-leads" class="tab-panel">
+        <div class="filters">
+          <input id="search" type="search" placeholder="Search company, city, contact, PLZ…">
+          <div class="filter-row">
+            <select id="statusFilter"><option value="">All statuses</option></select>
+            <select id="priorityFilter"><option value="">All priorities</option></select>
+            <select id="sortBy">
+              <option value="company">Sort: Name</option>
+              <option value="city">Sort: City</option>
+              <option value="postal_code">Sort: PLZ</option>
+              <option value="updated_at">Sort: Last update</option>
+              <option value="nearest">Sort: Closest neighbour</option>
+            </select>
+          </div>
+        </div>
+        <ul id="leadList" class="lead-list"></ul>
+      </section>
+
+      <section id="tab-conflicts" class="tab-panel" hidden>
+        <p class="hint" id="conflictHint"></p>
+        <ul id="conflictList" class="conflict-list"></ul>
+      </section>
+    </aside>
+
+    <section class="map-wrap">
+      <div id="map"></div>
+      <div class="map-controls">
+        <label><input id="showCircles" type="checkbox" checked> Distance circles</label>
+        <label><input id="showLines" type="checkbox" checked> "Too close" lines</label>
+      </div>
+      <div id="legend" class="legend"></div>
+      <div id="pickBanner" class="pick-banner" hidden>
+        Click on the map to set the location of this lead
+        <button id="cancelPick" class="btn small" type="button">Cancel</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Lead editor -->
+  <div id="drawer" class="drawer" hidden>
+    <div class="drawer-panel">
+      <header class="drawer-head">
+        <h2 id="drawerTitle">New lead</h2>
+        <button id="closeDrawer" class="icon-btn" type="button" aria-label="Close">×</button>
+      </header>
+      <form id="leadForm" class="drawer-body" autocomplete="off">
+        <fieldset>
+          <legend>Company</legend>
+          <label class="full">Company name *<input name="company" required></label>
+          <label>Status<select name="status"></select></label>
+          <label>Priority<select name="priority"></select></label>
+          <label>Website<input name="website" placeholder="https://"></label>
+          <label>Current brands<input name="brands" placeholder="Brands they sell today"></label>
+          <label>Lead source<input name="source" placeholder="Trade fair, referral, …"></label>
+          <label>Assigned to<input name="assigned_to"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Contact</legend>
+          <label class="full">Contact person<input name="contact_name"></label>
+          <label>Email<input name="email" type="email"></label>
+          <label>Phone<input name="phone" type="tel"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Address &amp; location</legend>
+          <label class="full">Street &amp; no.<input name="street"></label>
+          <label>PLZ<input name="postal_code" inputmode="numeric"></label>
+          <label>City<input name="city"></label>
+          <label class="full">Federal state<input name="state" list="states"></label>
+          <div class="full geo-row">
+            <button id="geocodeBtn" class="btn" type="button">Find address on map</button>
+            <button id="pickBtn" class="btn ghost" type="button">Pick on map</button>
+            <span id="coordText" class="coords"></span>
+          </div>
+          <ul id="geoResults" class="geo-results full" hidden></ul>
+          <input name="lat" type="hidden">
+          <input name="lng" type="hidden">
+          <div id="nearbyBox" class="nearby full" hidden>
+            <h4>Nearest other leads</h4>
+            <ul id="nearbyList"></ul>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Follow-up</legend>
+          <label class="full">Next action<input name="next_action" placeholder="e.g. Send price list"></label>
+          <label>Due date<input name="next_action_date" type="date"></label>
+          <label class="full">Notes<textarea name="notes" rows="4"></textarea></label>
+        </fieldset>
+
+        <div class="form-error" id="formError" hidden></div>
+
+        <div class="drawer-actions">
+          <button id="deleteLead" class="btn danger" type="button" hidden>Delete</button>
+          <span class="spacer"></span>
+          <button id="cancelEdit" class="btn ghost" type="button">Cancel</button>
+          <button class="btn primary" type="submit">Save lead</button>
+        </div>
+
+        <section id="activitySection" class="activities" hidden>
+          <h3>Activity log</h3>
+          <div class="activity-new">
+            <select id="activityType">
+              <option value="note">Note</option>
+              <option value="call">Call</option>
+              <option value="email">Email</option>
+              <option value="meeting">Meeting</option>
+              <option value="visit">Visit</option>
+            </select>
+            <input id="activityText" placeholder="What happened?">
+            <button id="addActivity" class="btn" type="button">Add</button>
+          </div>
+          <ul id="activityList"></ul>
+        </section>
+      </form>
+    </div>
+  </div>
+
+  <datalist id="states">
+    <option>Baden-Württemberg</option><option>Bayern</option><option>Berlin</option>
+    <option>Brandenburg</option><option>Bremen</option><option>Hamburg</option>
+    <option>Hessen</option><option>Mecklenburg-Vorpommern</option><option>Niedersachsen</option>
+    <option>Nordrhein-Westfalen</option><option>Rheinland-Pfalz</option><option>Saarland</option>
+    <option>Sachsen</option><option>Sachsen-Anhalt</option><option>Schleswig-Holstein</option>
+    <option>Thüringen</option>
+  </datalist>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 # ACD Germany – Dealer Lead Manager
 
-A small web app for managing potential dealers (leads) in Germany and checking them on a map, so you can see straight away if a new lead is too close to an existing dealer or another lead.
+A web app for managing potential dealers (leads) in Germany and checking them on a map, so you can see straight away if a new lead is too close to an existing dealer or another lead.
+
+It runs entirely in the web browser: there is no server, and nothing has to be installed.
 
 ## Features
 
@@ -12,33 +14,34 @@ A small web app for managing potential dealers (leads) in Germany and checking t
   - **Click anywhere on the map** to check that spot: you see the nearest leads and their distances, and you can create a new lead there.
 - **"Too close" tab**: every pair of leads closer than the minimum distance, closest first. Click a pair to zoom to it. You can choose which statuses to leave out of the check (for example *Rejected*).
 - **Adjustable minimum distance** (default 50 km) in the top bar.
-- **Address lookup**: "Find address on map" turns an address or postal code (PLZ) into map coordinates. "Pick on map" lets you click the location instead, and you can drag the marker to fine-tune it. While you edit a lead, the form lists the nearest other leads.
+- **Address lookup**: "Find address on map" turns an address or postal code (PLZ) into map coordinates. "Pick on map" lets you click the location instead, and you can drag the marker to fine-tune it.
 - **Search, filter and sort**: search by name, city, PLZ or contact; filter by status or priority; sort by name, city, PLZ, last update or closest neighbour.
-- **CSV import and export**: the export opens in Excel (`;`-separated, UTF-8). Import accepts `;` or `,` files. Rows with an `id` that already exists update that lead; other rows create new leads.
+- **Data menu**: download a full backup (all leads and activity logs) and restore it; export leads to CSV for Excel; import leads from CSV.
 
-## Getting started
+## Opening the app
 
-You only need **Python 3.9 or newer**. Nothing else has to be installed.
+The app is published with **GitHub Pages**. Open this address in Chrome or Edge:
 
-```bash
-python3 app.py
-```
+**https://bas-derooij.github.io/ACD-Germany/**
 
-Then open <http://localhost:8000> in your browser.
+To try it with example data, download [`docs/sample-leads.csv`](docs/sample-leads.csv) and use **Data → Import leads from CSV**.
 
-Options:
+### Where your data is kept
 
-```bash
-python3 app.py --port 9000                 # use another port
-python3 app.py --db /path/to/leads.db      # store the database somewhere else
-python3 app.py --host 0.0.0.0              # let colleagues on your network open it
-```
+Your leads are saved **in the browser on the computer you are using**, not online. This means:
 
-All data is kept in one SQLite file, `data/leads.db` by default. To make a backup, copy that file or use **Export CSV**.
+- Colleagues who open the same link see their own, empty list.
+- Your leads are not on other computers or in other browsers.
+- If the browser data is cleared (for example by an IT policy or by "clear browsing history"), the leads are gone. **Use Data → Download backup regularly**, and keep the file somewhere safe, such as OneDrive or a network drive.
+- To move to another computer: download a backup, open the app on the other computer, then use **Data → Restore backup**.
 
-To try the app with example data, click **Import CSV** and choose `sample/sample-leads.csv`.
+The map background and the address lookup use OpenStreetMap, so they need an internet connection.
 
-> The map tiles and the address lookup use OpenStreetMap, so they need an internet connection. The address lookup is limited to about one request per second.
+### Setting up GitHub Pages (one time)
+
+1. On GitHub, go to **Settings → General → Danger Zone → Change visibility** and make the repository **public**. GitHub Pages is only free for public repositories. This makes the app's code public, but not your leads, because those stay in your browser.
+2. Go to **Settings → Pages**. Under *Build and deployment*, choose **Deploy from a branch**, pick the branch (`main` once this work is merged) and the folder **`/docs`**, then click **Save**.
+3. After a minute or two, the app is live at the address shown on that page.
 
 ## Statuses
 
@@ -56,15 +59,21 @@ To try the app with example data, click **Import CSV** and choose `sample/sample
 
 `id; company; contact_name; email; phone; website; street; postal_code; city; state; lat; lng; status; priority; source; assigned_to; brands; notes; next_action; next_action_date`
 
-Only `company` is required. `status` must be one of `new, contacted, meeting, negotiation, dealer, on_hold, rejected`. `priority` must be `low`, `medium` or `high`. Decimal commas in `lat`/`lng` are accepted.
+Only `company` is required. `status` must be one of `new, contacted, meeting, negotiation, dealer, on_hold, rejected`. `priority` must be `low`, `medium` or `high`. Files may use `;` or `,` as the separator, and decimal commas in `lat`/`lng` are accepted. Rows with an `id` that already exists update that lead; other rows create new leads.
 
 ## Development
 
-```bash
-python3 -m unittest discover -s tests
-```
+The site is in `docs/`:
 
-- `app.py`: HTTP server, JSON API and SQLite storage (Python standard library only)
-- `static/`: the web interface (HTML, CSS, JavaScript), with Leaflet included in `static/vendor/leaflet`
+- `index.html`, `style.css`: the page
+- `app.js`: map, list and forms
+- `store.js`: saving data in the browser (localStorage), CSV and backups
+- `vendor/leaflet`: the Leaflet map library
+
+To run it locally, serve the folder with any static web server, for example `python3 -m http.server --directory docs`. To run the tests (Node 18 or newer):
+
+```bash
+node --test tests/*.test.js
+```
 
 Distances are straight-line distances between coordinates, not driving distances.

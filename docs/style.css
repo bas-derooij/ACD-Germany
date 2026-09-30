@@ -46,6 +46,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.ghost { background: transparent; }
 .btn.danger { color: var(--danger); border-color: #f0c4c4; background: transparent; }
 .btn.small { padding: 3px 8px; font-size: 12px; }
+.menu { position: relative; }
+.menu summary { list-style: none; }
+.menu summary::-webkit-details-marker { display: none; }
+.menu-list {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 1500; width: 270px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 6px; display: grid;
+}
+.menu-list button { text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.menu-list button:hover { background: var(--accent-soft); }
+.menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; width: 100%; }
+.menu-note { margin: 6px 10px 4px; font-size: 12px; color: var(--muted); }
 .icon-btn { border: 0; background: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--muted); }
 
 /* ---------- layout ---------- */

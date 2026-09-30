@@ -33,17 +33,62 @@ const hasGeo = (l) => l.lat !== null && l.lat !== undefined && l.lng !== null &&
 const statusOf = (s) => STATUS_INFO[s] || { label: s, color: "#999" };
 
 /* ---------------- API ---------------- */
-async function api(path, options = {}) {
-  const opts = { ...options, headers: { ...(options.headers || {}) } };
-  if (opts.body && typeof opts.body !== "string") {
-    opts.body = JSON.stringify(opts.body);
-    opts.headers["Content-Type"] = "application/json";
-  }
-  const res = await fetch("api/" + path, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-  return data;
+// All data lives in this browser (localStorage), see store.js.
+let browserStorage = null;
+try { browserStorage = window.localStorage; } catch (e) { /* blocked */ }
+const store = LeadStore.createStore(browserStorage);
+
+function api(path, options = {}) {
+  return store.request(options.method || "GET", path, options.body);
 }
+
+// Address lookup via OpenStreetMap Nominatim (max. 1 request per second).
+const geocodeCache = new Map();
+let lastGeocodeAt = 0;
+async function geocode(query) {
+  if (geocodeCache.has(query)) return geocodeCache.get(query);
+  const wait = 1000 - (Date.now() - lastGeocodeAt);
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastGeocodeAt = Date.now();
+  const params = new URLSearchParams({
+    q: query, format: "jsonv2", addressdetails: "1", limit: "5",
+    countrycodes: "de", "accept-language": "de",
+  });
+  let res;
+  try {
+    res = await fetch("https://nominatim.openstreetmap.org/search?" + params);
+  } catch (e) {
+    throw new Error("Address lookup is not reachable (no internet or blocked by your network)");
+  }
+  if (!res.ok) throw new Error(`Address lookup failed (${res.status})`);
+  const results = (await res.json()).map((item) => {
+    const a = item.address || {};
+    return {
+      label: item.display_name || "",
+      lat: Number(item.lat),
+      lng: Number(item.lon),
+      street: [a.road, a.house_number].filter(Boolean).join(" "),
+      postal_code: a.postcode || "",
+      city: a.city || a.town || a.village || a.municipality || "",
+      state: a.state || "",
+    };
+  });
+  geocodeCache.set(query, results);
+  return results;
+}
+
+function downloadFile(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const today = () => new Date().toISOString().slice(0, 10);
 
 function toast(message, isError = false) {
   const el = $("#toast");
@@ -421,7 +466,7 @@ async function geocodeAddress() {
   btn.disabled = true;
   btn.textContent = "Searching…";
   try {
-    const results = await api("geocode?q=" + encodeURIComponent(q));
+    const results = await geocode(q);
     const ul = $("#geoResults");
     if (!results.length) {
       ul.innerHTML = "<li>No results. Try only PLZ + city, or use “Pick on map”.</li>";
@@ -538,18 +583,23 @@ async function addActivity() {
 /* ---------------- import ---------------- */
 async function importCsv(file) {
   try {
-    const text = await file.text();
-    const res = await fetch("api/import", {
-      method: "POST", headers: { "Content-Type": "text/csv; charset=utf-8" }, body: text,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Import failed");
+    const data = store.importCsv(await file.text());
     await reload();
     const msg = `Imported: ${data.created} new, ${data.updated} updated.`;
     if (data.errors.length) {
       toast(`${msg} ${data.errors.length} row(s) skipped – see browser console.`, true);
       console.warn("CSV import errors:\n" + data.errors.join("\n"));
     } else toast(msg);
+  } catch (err) { toast(err.message, true); }
+}
+
+async function restoreBackup(file) {
+  if (!confirm("Restoring a backup replaces ALL leads in this browser with the backup. Continue?")) return;
+  try {
+    const res = store.importBackup(await file.text());
+    state.selectedId = null;
+    await reload();
+    toast(`Backup restored: ${res.leads} leads, ${res.activities} activities.`);
   } catch (err) { toast(err.message, true); }
 }
 
@@ -618,6 +668,23 @@ function init() {
   $("#activityText").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); addActivity(); }
   });
+
+  $("#exportBtn").addEventListener("click", () =>
+    downloadFile(`leads-${today()}.csv`, "\ufeff" + store.exportCsv(), "text/csv;charset=utf-8"));
+  $("#backupBtn").addEventListener("click", () =>
+    downloadFile(`acd-leads-backup-${today()}.json`, store.exportBackup(), "application/json"));
+  $("#restoreBtn").addEventListener("click", () => $("#restoreFile").click());
+  const menu = document.querySelector(".menu");
+  menu.addEventListener("click", (e) => { if (e.target.closest(".menu-list button")) menu.open = false; });
+  document.addEventListener("click", (e) => { if (!menu.contains(e.target)) menu.open = false; });
+  $("#restoreFile").addEventListener("change", (e) => {
+    if (e.target.files[0]) restoreBackup(e.target.files[0]);
+    e.target.value = "";
+  });
+  if (!store.persistent()) {
+    toast("Your browser blocks local storage: leads will be lost when you close this page. " +
+      "Download a backup before closing.", true);
+  }
 
   $("#importBtn").addEventListener("click", () => $("#importFile").click());
   $("#importFile").addEventListener("change", (e) => {

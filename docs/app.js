@@ -201,7 +201,8 @@ function groupedHtml(itemFn, groups = groupsInUse()) {
 }
 
 /* ---------------- map ---------------- */
-const map = L.map("map", { zoomSnap: 0.5 }).fitBounds(GERMANY_BOUNDS);
+// Gentle mouse-wheel zoom: one wheel click zooms about half a level (Leaflet default is more than one).
+const map = L.map("map", { zoomSnap: 0.25, wheelPxPerZoomLevel: 200 }).fitBounds(GERMANY_BOUNDS);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',

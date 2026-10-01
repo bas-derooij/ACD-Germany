@@ -16,7 +16,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
   - Domein, Onderneming, Naam, Telefoonnummer, Mailadres, Website en Locatie (gemeente).
   - Deelstaat, Status, Status informatie, Volgende actie (met datum), Laatste bezoek, Demo-serre en Notitie.
   - Optioneel ook straat en postcode, voor een exacte locatie.
-- **Status = kleurcode uit de roadmap**: 🟠 Gesprek loopt, 🟢 Samenwerking loopt, 🔴 Geen samenwerking.
+- **Status = kleurcode uit de roadmap**: 🟠 Gesprek, 🟢 Samenwerking, 🔴 Geen samenwerking.
 - **Kaart van Duitsland** met een rode lijn langs de grens. Elke lead is een pin:
   - de **vulling** is de kleur van het domein (klik in de legende op een kleur om ze te wijzigen);
   - de **rand** is de status (oranje, groen of rood);

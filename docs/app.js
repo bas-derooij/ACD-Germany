@@ -3,8 +3,8 @@
 
 // Status = colour code of column J in the roadmap sheet (ring around the pin).
 const STATUS_INFO = {
-  gesprek:      { label: "Gesprek loopt",      color: "#FFC000" },
-  samenwerking: { label: "Samenwerking loopt", color: "#00B050" },
+  gesprek:      { label: "Gesprek",            color: "#FFC000" },
+  samenwerking: { label: "Samenwerking",       color: "#00B050" },
   geen:         { label: "Geen samenwerking",  color: "#FF0000" },
 };
 const NO_CATEGORY = LeadStore.NO_CATEGORY;

@@ -81,7 +81,7 @@ test("export can be imported again", async () => {
     ["Overzicht", "Merkambassadeur", "Dealer-merkambassadeur", "Dealer Galabau"]);
   const ws = wb.worksheets[0];
   assert.equal(ws.getCell("B5").value, "A GmbH", "sorted by roadmap group order");
-  assert.equal(ws.getCell("I5").value, "Samenwerking loopt");
+  assert.equal(ws.getCell("I5").value, "Samenwerking");
   assert.equal(ws.getCell("I5").fill.fgColor.argb, "FF00B050");
 
   const loaded = new ExcelJS.Workbook();

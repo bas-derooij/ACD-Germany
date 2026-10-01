@@ -9,8 +9,8 @@
   "use strict";
 
   const STATUS_INFO = {
-    gesprek: { label: "Gesprek loopt", color: "FFC000" },
-    samenwerking: { label: "Samenwerking loopt", color: "00B050" },
+    gesprek: { label: "Gesprek", color: "FFC000" },
+    samenwerking: { label: "Samenwerking", color: "00B050" },
     geen: { label: "Geen samenwerking", color: "FF0000" },
   };
 
@@ -106,9 +106,9 @@
   function statusFromText(text) {
     const t = norm(text);
     if (!t) return null;
-    if (t.includes("samenwerking loopt") || t === "groen") return "samenwerking";
-    if (t.includes("gesprek") || t === "oranje") return "gesprek";
     if (t.includes("geen samenwerking") || t === "rood") return "geen";
+    if (t.startsWith("samenwerking") || t === "groen") return "samenwerking";
+    if (t.startsWith("gesprek") || t === "oranje") return "gesprek";
     return null;
   }
 

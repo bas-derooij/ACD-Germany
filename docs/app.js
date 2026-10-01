@@ -344,7 +344,7 @@ function renderLegend() {
         <span>${esc(label)} <span class="muted">(${g.n})</span></span></label>`, legendGroups)
       : `<div class="legend-item muted">Nog geen leads</div>`}
     <div class="legend-title">Status (rand)</div>
-    ${Object.values(STATUS_INFO).map((s) =>
+    ${Object.entries(STATUS_INFO).filter(([k]) => k !== "geen").map(([, s]) =>
       `<div class="legend-item"><i class="ring" style="border-color:${s.color}"></i>${esc(s.label)}</div>`).join("")}
     <div class="legend-title">Kaart</div>
     <div class="legend-item"><i class="halo"></i>Te dicht bij elkaar</div>

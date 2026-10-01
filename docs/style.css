@@ -161,7 +161,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .check-group label { display: flex; align-items: center; gap: 4px; }
 .group-head { font-weight: 600; font-size: 12px; margin: 6px 0 1px; }
 .legend-item.sub, .check-group label.sub, .check-grid label.sub { padding-left: 14px; }
-.legend-item.single { font-weight: 600; }
+.legend-item.single { font-weight: 600; margin-top: 6px; }
 .legend-item.single .muted { font-weight: 400; }
 .geo-progress {
   position: absolute; z-index: 600; bottom: 24px; left: 10px; background: var(--panel); border-radius: var(--radius);

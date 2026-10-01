@@ -1,7 +1,7 @@
-// Run with: node --test tests/
+// Run with: npm test
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createStore, parseCsv } = require("../docs/store.js");
+const { createStore, STORAGE_KEY } = require("../docs/store.js");
 
 function memoryStorage() {
   const data = new Map();
@@ -16,18 +16,18 @@ const BERLIN = { lat: 52.52, lng: 13.405 };
 
 test("lead CRUD with activity log", async () => {
   const store = createStore(memoryStorage());
-  const lead = await store.request("POST", "leads", { company: "Autohaus Berlin", city: "Berlin", ...BERLIN });
-  assert.equal(lead.status, "new");
-  assert.equal(lead.priority, "medium");
+  const lead = await store.request("POST", "leads", { company: "Autohaus Berlin", category: "Dealer Galabau", city: "Berlin", ...BERLIN });
+  assert.equal(lead.status, "gesprek");
   assert.equal((await store.request("GET", "leads")).length, 1);
 
-  const updated = await store.request("PUT", `leads/${lead.id}`, { status: "contacted" });
-  assert.equal(updated.status, "contacted");
+  const updated = await store.request("PUT", `leads/${lead.id}`, { status: "samenwerking", demo_serre: "Sophie BL" });
+  assert.equal(updated.status, "samenwerking");
+  assert.equal(updated.demo_serre, "Sophie BL");
   assert.equal(updated.company, "Autohaus Berlin");
 
-  const act = await store.request("POST", `leads/${lead.id}/activities`, { type: "call", text: "Called owner" });
+  const act = await store.request("POST", `leads/${lead.id}/activities`, { type: "telefoon", text: "Gebeld" });
   const acts = await store.request("GET", `leads/${lead.id}/activities`);
-  assert.deepEqual(acts.map((a) => a.type).sort(), ["call", "status", "system"]);
+  assert.deepEqual(acts.map((a) => a.type).sort(), ["status", "system", "telefoon"]);
 
   await store.request("DELETE", `activities/${act.id}`);
   await store.request("DELETE", `leads/${lead.id}`);
@@ -40,55 +40,81 @@ test("data survives a new store on the same storage", async () => {
   assert.equal((await createStore(storage).request("GET", "leads")).length, 1);
 });
 
+test("old statuses are migrated", async () => {
+  const storage = memoryStorage();
+  storage.setItem(STORAGE_KEY, JSON.stringify({
+    next_lead_id: 4, next_activity_id: 1, activities: [], settings: {},
+    leads: [
+      { id: 1, company: "A", status: "dealer" },
+      { id: 2, company: "B", status: "rejected" },
+      { id: 3, company: "C", status: "contacted" },
+    ],
+  }));
+  const leads = await createStore(storage).request("GET", "leads");
+  assert.deepEqual(leads.map((l) => l.status), ["samenwerking", "geen", "gesprek"]);
+});
+
 test("validation", async () => {
   const store = createStore(memoryStorage());
   await assert.rejects(store.request("POST", "leads", { company: "" }), { status: 400 });
   await assert.rejects(store.request("POST", "leads", { company: "X", status: "bogus" }), { status: 400 });
   await assert.rejects(store.request("POST", "leads", { company: "X", lat: "abc" }), { status: 400 });
   await assert.rejects(store.request("PUT", "settings", { min_distance_km: -5 }), { status: 400 });
+  await assert.rejects(store.request("PUT", "settings", { category_colors: { A: "red" } }), { status: 400 });
 });
 
-test("settings", async () => {
+test("settings and category colours", async () => {
   const store = createStore(memoryStorage());
-  assert.equal((await store.request("GET", "settings")).min_distance_km, 50);
-  const s = await store.request("PUT", "settings", { min_distance_km: "20", ignore_statuses: [] });
+  let s = await store.request("GET", "settings");
+  assert.equal(s.min_distance_km, 50);
+  assert.deepEqual(s.ignore_statuses, ["geen"]);
+  assert.ok(s.excluded_categories.includes("Merkambassadeur"));
+
+  await store.request("POST", "leads", { company: "A", category: "Dealer Galabau" });
+  await store.request("POST", "leads", { company: "B", category: "Iets nieuws" });
+  await store.request("POST", "leads", { company: "C" });
+  s = await store.request("GET", "settings");
+  assert.equal(s.category_colors["Dealer Galabau"], "#1f6fd1");
+  assert.match(s.category_colors["Iets nieuws"], /^#[0-9a-f]{6}$/);
+  assert.ok(s.category_colors["Zonder domein"]);
+
+  s = await store.request("PUT", "settings", {
+    min_distance_km: "20", excluded_categories: ["Iets nieuws"], category_colors: { "Iets nieuws": "#123456" },
+  });
   assert.equal(s.min_distance_km, 20);
-  assert.deepEqual(s.ignore_statuses, []);
+  assert.deepEqual(s.excluded_categories, ["Iets nieuws"]);
+  assert.equal(s.category_colors["Iets nieuws"], "#123456");
+  assert.equal(s.category_colors["Dealer Galabau"], "#1f6fd1");
 });
 
-test("CSV export and import round trip", async () => {
+test("importLeads creates and updates by company name", async () => {
   const store = createStore(memoryStorage());
-  await store.request("POST", "leads", { company: "Händler; Süd", city: "München", lat: 48.137, lng: 11.575, notes: 'Say "hi"\nline 2' });
-  let csv = store.exportCsv();
-  csv = csv.replace("München", "Muenchen") + ';Neuer Händler;;;;;;;Köln;;50,94;6,96;;;;;;;;;;;\r\n';
-  const result = store.importCsv(csv);
-  assert.deepEqual(result, { created: 1, updated: 1, errors: [] });
-  const leads = await store.request("GET", "leads");
-  const byName = Object.fromEntries(leads.map((l) => [l.company, l]));
-  assert.equal(byName["Händler; Süd"].city, "Muenchen");
-  assert.equal(byName["Händler; Süd"].notes, 'Say "hi"\nline 2');
-  assert.equal(byName["Neuer Händler"].lat, 50.94);
-});
+  const first = store.importLeads([
+    { label: "Rij 5", data: { company: "Beispiel Gartencenter", city: "Musterstadt", status: "gesprek" } },
+    { label: "Rij 6", data: { company: "", city: "Nowhere" } },
+  ]);
+  assert.equal(first.created, 1);
+  assert.equal(first.errors.length, 1);
 
-test("CSV import with commas and bad rows", () => {
-  const store = createStore(memoryStorage());
-  const res = store.importCsv("company,city,lat,lng,status\nA GmbH,Hamburg,53.55,9.99,dealer\n,Nowhere,,,\n");
-  assert.equal(res.created, 1);
-  assert.equal(res.errors.length, 1);
+  const [lead] = await store.request("GET", "leads");
+  await store.request("PUT", `leads/${lead.id}`, { lat: 48.07, lng: 11.38 });
+  const second = store.importLeads([
+    { data: { company: " beispiel gartencenter ", city: "Musterstadt", status: "samenwerking", notes: "x" } },
+  ]);
+  assert.deepEqual([second.created, second.updated], [0, 1]);
+  const [after] = await store.request("GET", "leads");
+  assert.equal(after.status, "samenwerking");
+  assert.equal(after.lat, 48.07, "location kept when the municipality did not change");
 });
 
 test("backup and restore", async () => {
   const a = createStore(memoryStorage());
   const lead = await a.request("POST", "leads", { company: "A" });
-  await a.request("POST", `leads/${lead.id}/activities`, { text: "note" });
+  await a.request("POST", `leads/${lead.id}/activities`, { text: "notitie" });
   const b = createStore(memoryStorage());
   assert.deepEqual(b.importBackup(a.exportBackup()), { leads: 1, activities: 2 });
   assert.equal((await b.request("GET", "leads"))[0].company, "A");
   assert.throws(() => b.importBackup("{}"), { status: 400 });
-});
-
-test("parseCsv handles quotes", () => {
-  assert.deepEqual(parseCsv('a;b\n"x;1";"he said ""hi"""\n', ";"), [["a", "b"], ["x;1", 'he said "hi"']]);
 });
 
 test("works without storage (memory fallback)", async () => {

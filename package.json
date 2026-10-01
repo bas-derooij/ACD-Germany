@@ -1,0 +1,11 @@
+{
+  "name": "acd-germany-leads",
+  "private": true,
+  "description": "ACD Duitsland lead manager (static site in docs/)",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "exceljs": "4.4.0"
+  }
+}

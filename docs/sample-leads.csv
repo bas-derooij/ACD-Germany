@@ -1,9 +1,0 @@
-company;contact_name;email;phone;city;postal_code;state;lat;lng;status;priority;notes
-Beispiel Bikes Berlin;Anna Schmidt;anna@example.com;+49 30 1234567;Berlin;10115;Berlin;52.5321;13.3849;dealer;high;Existing dealer (example)
-Muster Motors Potsdam;Jonas Weber;jonas@example.com;+49 331 555111;Potsdam;14467;Brandenburg;52.3989;13.0657;new;medium;Example lead close to Berlin dealer
-Demo Handel Hamburg;Lea Fischer;lea@example.com;+49 40 987654;Hamburg;20095;Hamburg;53.5503;10.0006;contacted;high;
-Test Autohaus München;Max Bauer;max@example.com;+49 89 222333;München;80331;Bayern;48.1374;11.5755;negotiation;high;
-Probe GmbH Augsburg;Mia Wagner;mia@example.com;;Augsburg;86150;Bayern;48.3705;10.8978;meeting;medium;~57 km from München
-Sample Store Köln;Paul Becker;;;Köln;50667;Nordrhein-Westfalen;50.9384;6.9599;new;low;
-Sample Store Bonn;Lena Hoffmann;;;Bonn;53111;Nordrhein-Westfalen;50.7374;7.0982;rejected;low;Rejected - ignored in distance check
-Beispiel Leipzig;Tom Schulz;;;Leipzig;04109;Sachsen;51.3397;12.3731;on_hold;medium;

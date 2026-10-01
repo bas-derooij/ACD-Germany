@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="nl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ACD Germany · Dealer Leads</title>
+  <title>ACD Duitsland · Leads</title>
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,27 +11,28 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark">ACD</span>
-      <span class="brand-title">Dealer Leads Germany</span>
+      <span class="brand-title">Leads Duitsland</span>
     </div>
     <div class="topbar-actions">
-      <label class="distance-setting" title="Leads closer together than this are flagged as too close">
-        Min. distance
+      <label class="distance-setting" title="Leads die dichter bij elkaar liggen worden gemarkeerd als te dichtbij">
+        Min. afstand
         <input id="minDistance" type="number" min="1" max="1000" step="1"> km
       </label>
       <details class="menu">
         <summary class="btn ghost">Data ▾</summary>
         <div class="menu-list">
-          <button id="backupBtn" type="button">Download backup (all data)</button>
-          <button id="restoreBtn" type="button">Restore backup…</button>
+          <button id="exportBtn" type="button">Exporteren naar Excel…</button>
+          <button id="importBtn" type="button">Importeren uit roadmap (Excel)…</button>
+          <button id="geocodeMissingBtn" type="button">Ontbrekende locaties zoeken</button>
           <hr>
-          <button id="exportBtn" type="button">Export leads to CSV (Excel)</button>
-          <button id="importBtn" type="button">Import leads from CSV…</button>
-          <p class="menu-note">Your leads are saved in this browser on this computer.
-            Download a backup regularly.</p>
+          <button id="backupBtn" type="button">Back-up downloaden (alle gegevens)</button>
+          <button id="restoreBtn" type="button">Back-up terugzetten…</button>
+          <p class="menu-note">Je leads worden bewaard in deze browser op deze computer.
+            Download regelmatig een back-up.</p>
         </div>
       </details>
-      <button id="newLeadBtn" class="btn primary" type="button">+ New lead</button>
-      <input id="importFile" type="file" accept=".csv,text/csv" hidden>
+      <button id="newLeadBtn" class="btn primary" type="button">+ Nieuwe lead</button>
+      <input id="importFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
       <input id="restoreFile" type="file" accept=".json,application/json" hidden>
     </div>
   </header>
@@ -40,21 +41,21 @@
     <aside class="sidebar">
       <div class="tabs" role="tablist">
         <button class="tab active" data-tab="leads" role="tab">Leads <span id="leadCount" class="count"></span></button>
-        <button class="tab" data-tab="conflicts" role="tab">Too close <span id="conflictCount" class="count"></span></button>
+        <button class="tab" data-tab="conflicts" role="tab">Te dichtbij <span id="conflictCount" class="count"></span></button>
       </div>
 
       <section id="tab-leads" class="tab-panel">
         <div class="filters">
-          <input id="search" type="search" placeholder="Search company, city, contact, PLZ…">
+          <input id="search" type="search" placeholder="Zoek op onderneming, gemeente, contact…">
           <div class="filter-row">
-            <select id="statusFilter"><option value="">All statuses</option></select>
-            <select id="priorityFilter"><option value="">All priorities</option></select>
+            <select id="categoryFilter"></select>
+            <select id="statusFilter"></select>
             <select id="sortBy">
-              <option value="company">Sort: Name</option>
-              <option value="city">Sort: City</option>
-              <option value="postal_code">Sort: PLZ</option>
-              <option value="updated_at">Sort: Last update</option>
-              <option value="nearest">Sort: Closest neighbour</option>
+              <option value="category">Sorteer: Domein</option>
+              <option value="company">Sorteer: Naam</option>
+              <option value="city">Sorteer: Gemeente</option>
+              <option value="updated_at">Sorteer: Laatst gewijzigd</option>
+              <option value="nearest">Sorteer: Dichtstbijzijnde</option>
             </select>
           </div>
         </div>
@@ -62,7 +63,7 @@
       </section>
 
       <section id="tab-conflicts" class="tab-panel" hidden>
-        <p class="hint" id="conflictHint"></p>
+        <div class="hint" id="conflictHint"></div>
         <ul id="conflictList" class="conflict-list"></ul>
       </section>
     </aside>
@@ -70,13 +71,20 @@
     <section class="map-wrap">
       <div id="map"></div>
       <div class="map-controls">
-        <label><input id="showCircles" type="checkbox" checked> Distance circles</label>
-        <label><input id="showLines" type="checkbox" checked> "Too close" lines</label>
+        <label><input id="showCircles" type="checkbox" checked> Afstandscirkels</label>
+        <label><input id="showLines" type="checkbox" checked> Lijnen "te dichtbij"</label>
       </div>
-      <div id="legend" class="legend"></div>
+      <details id="legend" class="legend" open>
+        <summary>Legende</summary>
+        <div id="legendBody"></div>
+      </details>
       <div id="pickBanner" class="pick-banner" hidden>
-        Click on the map to set the location of this lead
-        <button id="cancelPick" class="btn small" type="button">Cancel</button>
+        Klik op de kaart om de locatie van deze lead te kiezen
+        <button id="cancelPick" class="btn small" type="button">Annuleren</button>
+      </div>
+      <div id="geoProgress" class="geo-progress" hidden>
+        <span id="geoProgressText"></span>
+        <button id="geoStop" class="btn small" type="button">Stoppen</button>
       </div>
     </section>
   </main>
@@ -85,76 +93,79 @@
   <div id="drawer" class="drawer" hidden>
     <div class="drawer-panel">
       <header class="drawer-head">
-        <h2 id="drawerTitle">New lead</h2>
-        <button id="closeDrawer" class="icon-btn" type="button" aria-label="Close">×</button>
+        <h2 id="drawerTitle">Nieuwe lead</h2>
+        <button id="closeDrawer" class="icon-btn" type="button" aria-label="Sluiten">×</button>
       </header>
       <form id="leadForm" class="drawer-body" autocomplete="off">
         <fieldset>
-          <legend>Company</legend>
-          <label class="full">Company name *<input name="company" required></label>
+          <legend>Lead</legend>
+          <label class="full">Onderneming *<input name="company" required></label>
+          <label>Domein<input name="category" list="categories" placeholder="bv. Dealer Galabau"></label>
           <label>Status<select name="status"></select></label>
-          <label>Priority<select name="priority"></select></label>
-          <label>Website<input name="website" placeholder="https://"></label>
-          <label>Current brands<input name="brands" placeholder="Brands they sell today"></label>
-          <label>Lead source<input name="source" placeholder="Trade fair, referral, …"></label>
-          <label>Assigned to<input name="assigned_to"></label>
         </fieldset>
 
         <fieldset>
           <legend>Contact</legend>
-          <label class="full">Contact person<input name="contact_name"></label>
-          <label>Email<input name="email" type="email"></label>
-          <label>Phone<input name="phone" type="tel"></label>
+          <label class="full">Naam contactpersoon<input name="contact_name"></label>
+          <label>Telefoonnummer<input name="phone" type="tel"></label>
+          <label>Mailadres<input name="email"></label>
+          <label class="full">Website<input name="website"></label>
         </fieldset>
 
         <fieldset>
-          <legend>Address &amp; location</legend>
-          <label class="full">Street &amp; no.<input name="street"></label>
-          <label>PLZ<input name="postal_code" inputmode="numeric"></label>
-          <label>City<input name="city"></label>
-          <label class="full">Federal state<input name="state" list="states"></label>
+          <legend>Locatie</legend>
+          <label>Locatie (gemeente)<input name="city"></label>
+          <label>Deelstaat<input name="state" list="states"></label>
+          <label>Straat &amp; nr. (optioneel)<input name="street"></label>
+          <label>Postcode (optioneel)<input name="postal_code" inputmode="numeric"></label>
           <div class="full geo-row">
-            <button id="geocodeBtn" class="btn" type="button">Find address on map</button>
-            <button id="pickBtn" class="btn ghost" type="button">Pick on map</button>
+            <button id="geocodeBtn" class="btn" type="button">Zoek op de kaart</button>
+            <button id="pickBtn" class="btn ghost" type="button">Kies op de kaart</button>
             <span id="coordText" class="coords"></span>
           </div>
+          <p id="geoAutoNote" class="geo-auto full" hidden>📍 Pin automatisch geplaatst op basis van de gemeente.
+            Controleer de locatie en sleep de pin indien nodig.</p>
           <ul id="geoResults" class="geo-results full" hidden></ul>
           <input name="lat" type="hidden">
           <input name="lng" type="hidden">
+          <input name="geo_auto" type="hidden">
           <div id="nearbyBox" class="nearby full" hidden>
-            <h4>Nearest other leads</h4>
+            <h4>Dichtstbijzijnde andere leads</h4>
             <ul id="nearbyList"></ul>
           </div>
         </fieldset>
 
         <fieldset>
-          <legend>Follow-up</legend>
-          <label class="full">Next action<input name="next_action" placeholder="e.g. Send price list"></label>
-          <label>Due date<input name="next_action_date" type="date"></label>
-          <label class="full">Notes<textarea name="notes" rows="4"></textarea></label>
+          <legend>Opvolging</legend>
+          <label class="full">Status informatie<textarea name="status_info" rows="3"></textarea></label>
+          <label>Volgende actie<input name="next_action"></label>
+          <label>Datum volgende actie<input name="next_action_date" type="date"></label>
+          <label>Laatste bezoek<input name="last_visit" placeholder="dd/mm/jjjj"></label>
+          <label>Demo-serre<input name="demo_serre"></label>
+          <label class="full">Notitie<textarea name="notes" rows="3"></textarea></label>
         </fieldset>
 
         <div class="form-error" id="formError" hidden></div>
 
         <div class="drawer-actions">
-          <button id="deleteLead" class="btn danger" type="button" hidden>Delete</button>
+          <button id="deleteLead" class="btn danger" type="button" hidden>Verwijderen</button>
           <span class="spacer"></span>
-          <button id="cancelEdit" class="btn ghost" type="button">Cancel</button>
-          <button class="btn primary" type="submit">Save lead</button>
+          <button id="cancelEdit" class="btn ghost" type="button">Annuleren</button>
+          <button class="btn primary" type="submit">Opslaan</button>
         </div>
 
         <section id="activitySection" class="activities" hidden>
-          <h3>Activity log</h3>
+          <h3>Activiteitenlog</h3>
           <div class="activity-new">
             <select id="activityType">
-              <option value="note">Note</option>
-              <option value="call">Call</option>
-              <option value="email">Email</option>
-              <option value="meeting">Meeting</option>
-              <option value="visit">Visit</option>
+              <option value="notitie">Notitie</option>
+              <option value="telefoon">Telefoon</option>
+              <option value="mail">Mail</option>
+              <option value="videocall">Videocall</option>
+              <option value="bezoek">Bezoek</option>
             </select>
-            <input id="activityText" placeholder="What happened?">
-            <button id="addActivity" class="btn" type="button">Add</button>
+            <input id="activityText" placeholder="Wat is er gebeurd?">
+            <button id="addActivity" class="btn" type="button">Toevoegen</button>
           </div>
           <ul id="activityList"></ul>
         </section>
@@ -162,6 +173,34 @@
     </div>
   </div>
 
+  <!-- Excel export -->
+  <div id="exportDialog" class="modal" hidden>
+    <form id="exportForm" class="modal-panel">
+      <header class="drawer-head">
+        <h2>Exporteren naar Excel</h2>
+        <button id="closeExport" class="icon-btn" type="button" aria-label="Sluiten">×</button>
+      </header>
+      <div class="modal-body">
+        <h4>Domeinen</h4>
+        <p class="modal-links"><a href="#" data-check="cat:all">Alles</a> · <a href="#" data-check="cat:none">Niets</a> ·
+          <a href="#" data-check="cat:dealers">Alleen dealers</a></p>
+        <div id="exportCategories" class="check-grid"></div>
+        <h4>Status</h4>
+        <div id="exportStatuses" class="check-grid"></div>
+        <h4>Indeling</h4>
+        <label class="radio"><input type="radio" name="layout" value="single" checked> Eén tabblad met alle geselecteerde leads</label>
+        <label class="radio"><input type="radio" name="layout" value="per-category"> Een overzicht + één tabblad per domein</label>
+        <p id="exportCount" class="hint"></p>
+      </div>
+      <div class="drawer-actions modal-actions">
+        <span class="spacer"></span>
+        <button id="cancelExport" class="btn ghost" type="button">Annuleren</button>
+        <button class="btn primary" type="submit">Excel downloaden</button>
+      </div>
+    </form>
+  </div>
+
+  <datalist id="categories"></datalist>
   <datalist id="states">
     <option>Baden-Württemberg</option><option>Bayern</option><option>Berlin</option>
     <option>Brandenburg</option><option>Bremen</option><option>Hamburg</option>
@@ -174,8 +213,10 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/exceljs/exceljs.min.js" defer></script>
   <script src="germany.js"></script>
   <script src="store.js"></script>
+  <script src="roadmap.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

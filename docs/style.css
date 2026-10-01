@@ -179,6 +179,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .popup p { margin: 2px 0; }
 .popup .near-list { margin: 6px 0; padding-left: 16px; }
 .popup .bad { color: var(--danger); }
+.stack-count {
+  background: #1d2330; color: #fff; border: 2px solid #fff; border-radius: 9px; font-size: 10px; font-weight: 700;
+  line-height: 12px; text-align: center; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.stack-list { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); display: grid; gap: 2px; }
+.stack-item { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 3px 2px; cursor: pointer; text-align: left; color: var(--accent); }
+.stack-item:hover { text-decoration: underline; }
+.stack-item i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; flex: none; }
 .dist-label { background: var(--danger); color: #fff; border: 0; font-weight: 600; padding: 1px 5px; box-shadow: none; }
 .dist-label::before { display: none; }
 

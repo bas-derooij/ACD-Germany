@@ -221,6 +221,9 @@ const layers = {
   markers: L.layerGroup().addTo(map),
 };
 const markerById = new Map();
+// Visible leads per map position (pins exactly on top of each other, e.g. same municipality).
+let stacks = new Map();
+const stackKey = (l) => `${l.lat.toFixed(3)},${l.lng.toFixed(3)}`;
 let draftMarker = null;
 
 function renderMap() {
@@ -230,6 +233,13 @@ function renderMap() {
   markerById.clear();
   const radius = Number(state.settings.min_distance_km) * 1000;
   const visible = new Set(filteredLeads().map((l) => l.id));
+  stacks = new Map();
+  for (const lead of state.leads) {
+    if (!hasGeo(lead) || !visible.has(lead.id)) continue;
+    const key = stackKey(lead);
+    if (!stacks.has(key)) stacks.set(key, []);
+    stacks.get(key).push(lead);
+  }
 
   for (const lead of state.leads) {
     if (!hasGeo(lead) || !visible.has(lead.id)) continue;
@@ -260,6 +270,15 @@ function renderMap() {
     marker.bindPopup(() => leadPopup(lead));
     marker.on("click", () => selectLead(lead.id, false));
     markerById.set(lead.id, marker);
+  }
+
+  // Small number next to pins that hide other visible leads at the same spot.
+  for (const group of stacks.values()) {
+    if (group.length < 2) continue;
+    L.marker([group[0].lat, group[0].lng], {
+      icon: L.divIcon({ className: "stack-count", html: String(group.length), iconSize: [16, 16], iconAnchor: [-6, 20] }),
+      interactive: false, keyboard: false, zIndexOffset: 500,
+    }).addTo(layers.markers);
   }
 
   const labelAlways = state.conflicts.length <= 25;
@@ -295,6 +314,7 @@ function leadPopup(lead) {
   const near = nearestTo(lead.lat, lead.lng, lead.id, 3);
   const min = Number(state.settings.min_distance_km);
   const cat = categoryOf(lead);
+  const others = (stacks.get(stackKey(lead)) || []).filter((l) => l.id !== lead.id);
   const div = document.createElement("div");
   div.className = "popup";
   div.innerHTML = `
@@ -304,8 +324,13 @@ function leadPopup(lead) {
     ${lead.contact_name ? `<p>${esc(lead.contact_name)}${lead.phone ? " · " + esc(lead.phone) : ""}</p>` : ""}
     ${lead.status_info ? `<p class="muted">${esc(lead.status_info)}</p>` : ""}
     ${near.length ? `<strong>Dichtstbijzijnde leads</strong>${nearListHtml(near, min)}` : ""}
-    <button class="btn small" type="button">Lead openen</button>`;
-  div.querySelector("button").addEventListener("click", () => openDrawer(lead));
+    <button class="btn small" type="button" data-open="${lead.id}">Lead openen</button>
+    ${others.length ? `<div class="stack-list"><strong>Ook op deze plek (${others.length})</strong>
+      ${others.map((o) => `<button type="button" class="stack-item" data-open="${o.id}">
+        <i style="background:${colorOf(categoryOf(o))};border-color:${statusOf(o.status).color}"></i>${esc(o.company)}</button>`).join("")}
+      </div>` : ""}`;
+  div.querySelectorAll("[data-open]").forEach((btn) => btn.addEventListener("click", () =>
+    openDrawer(state.leads.find((l) => l.id === Number(btn.dataset.open)))));
   return div;
 }
 

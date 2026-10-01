@@ -31,6 +31,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
   - de **vulling** is de kleur van de subcategorie, of van de categorie als er geen subcategorie is (klik in de legende op een kleur om ze te wijzigen);
   - de **rand** is de status (oranje, groen of rood);
   - een **rode stippelring** en een stippellijn met de afstand betekenen *te dicht bij een andere lead*.
+  - een **klein cijfer** naast een pin betekent dat er meerdere zichtbare leads op precies dezelfde plek liggen (bv. in dezelfde gemeente). De popup van die pin toont de andere leads op die plek. Het cijfer houdt rekening met je filters.
 - **Tabblad "Te dichtbij"**: alle paren leads die dichter dan de minimale afstand (standaard 50 km) bij elkaar liggen. Je kiest per (sub)categorie en per status wie meetelt. Standaard tellen alle dealers mee, maar niet Ambassadeur, Certified Assembler, Beurs en *Geen samenwerking*.
 - **Filters** (links boven de lijst): zoeken op tekst, en keuzelijsten voor categorie en status waarin je meerdere vakjes tegelijk aanvinkt. Een categorie aanvinken selecteert al haar subcategorieën. Lijst en kaart tonen alleen de gefilterde leads. Met **✕ Filters wissen** zie je weer alle leads op de kaart van Duitsland.
 - **Klik op de kaart** om een plek te controleren: je ziet de dichtstbijzijnde leads en kunt er meteen een nieuwe lead aanmaken.

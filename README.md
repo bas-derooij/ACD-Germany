@@ -69,7 +69,7 @@ De site staat in `docs/`:
 - `app.js`: kaart, lijst, formulieren, import en export
 - `store.js`: opslag in de browser (localStorage) en back-ups
 - `roadmap.js`: de roadmap-sheet lezen en schrijven (met ExcelJS)
-- `germany.js`: de grens van Duitsland zonder eilanden, met de smalle waterwegen langs de noordkust opgevuld (Natural Earth, publiek domein; opnieuw te maken met `npm run build:border`)
+- `germany.js`: de grens van Duitsland als vloeiende lijn: vasteland en Rügen (zonder de andere eilanden), smalle waterwegen langs de noordkust opgevuld (Natural Earth, publiek domein; opnieuw te maken met `npm run build:border`)
 - `vendor/`: Leaflet (kaart) en ExcelJS (Excel)
 
 Lokaal draaien: `python3 -m http.server --directory docs 8000` en open http://localhost:8000.

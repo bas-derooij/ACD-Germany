@@ -47,7 +47,10 @@ test("readRoadmap takes status from colour and skips red rows", async () => {
   assert.equal(res.skipped.nocolor.length, 1);
 
   const [first, second, fair] = res.leads.map((l) => l.data);
-  assert.equal(first.category, "Dealer Galabau");
+  assert.equal(first.category, "Dealer", "old Domein values are split");
+  assert.equal(first.subcategory, "GaLa Bau");
+  assert.equal(second.category, "Ambassador");
+  assert.equal(second.subcategory, "");
   assert.equal(first.city, "Kastl");
   assert.equal(first.website, "", "'/' means empty");
   assert.equal(first.last_visit, "10/04/2026");
@@ -72,24 +75,31 @@ test("classifyColor", () => {
 
 test("export can be imported again", async () => {
   const leads = [
-    { company: "B GmbH", category: "Dealer Galabau", status: "gesprek", city: "Kastl", next_action: "Bellen", next_action_date: "2026-10-06" },
-    { company: "A GmbH", category: "Merkambassadeur", status: "samenwerking", city: "Hamburg" },
-    { company: "C", category: "Dealer/merkambassadeur", status: "gesprek" },
+    { company: "B GmbH", category: "Dealer", subcategory: "GaLa Bau", status: "gesprek", city: "Kastl", next_action: "Bellen", next_action_date: "2026-10-06" },
+    { company: "A GmbH", category: "Ambassador", subcategory: "", status: "samenwerking", city: "Hamburg" },
+    { company: "C", category: "Dealer", subcategory: "Gartencenter", status: "gesprek" },
+    { company: "D", category: "Certified Assembler", subcategory: "Monteur", status: "gesprek" },
   ];
-  const wb = R.buildRoadmap(ExcelJS, leads, { perCategory: true });
-  assert.deepEqual(wb.worksheets.map((w) => w.name),
-    ["Overzicht", "Merkambassadeur", "Dealer-merkambassadeur", "Dealer Galabau"]);
+  const bySub = R.buildRoadmap(ExcelJS, leads, { groupBy: "subcategory" });
+  assert.deepEqual(bySub.worksheets.map((w) => w.name),
+    ["Overzicht", "Dealer › GaLa Bau", "Dealer › Gartencenter", "Certified Assembler › Monteur", "Ambassador"]);
+  const wb = R.buildRoadmap(ExcelJS, leads, { groupBy: "category" });
+  assert.deepEqual(wb.worksheets.map((w) => w.name), ["Overzicht", "Dealer", "Certified Assembler", "Ambassador"]);
   const ws = wb.worksheets[0];
-  assert.equal(ws.getCell("B5").value, "A GmbH", "sorted by roadmap group order");
-  assert.equal(ws.getCell("I5").value, "Samenwerking");
-  assert.equal(ws.getCell("I5").fill.fgColor.argb, "FF00B050");
+  assert.equal(ws.getCell("A4").value, "Categorie");
+  assert.equal(ws.getCell("B4").value, "Subcategorie");
+  assert.equal(ws.getCell("C5").value, "B GmbH", "sorted by category, then subcategory");
+  assert.equal(ws.getCell("C6").value, "C");
+  assert.equal(ws.getCell("J8").value, "Samenwerking");
+  assert.equal(ws.getCell("J8").fill.fgColor.argb, "FF00B050");
 
   const loaded = new ExcelJS.Workbook();
   await loaded.xlsx.load(await wb.xlsx.writeBuffer());
   const back = R.readRoadmap(loaded).leads.map((l) => l.data);
-  assert.equal(back.length, 3);
+  assert.equal(back.length, 4);
   const b = back.find((l) => l.company === "B GmbH");
   assert.equal(b.status, "gesprek");
+  assert.deepEqual([b.category, b.subcategory], ["Dealer", "GaLa Bau"]);
   assert.equal(b.next_action, "Bellen (tegen 06/10/2026)");
 });
 

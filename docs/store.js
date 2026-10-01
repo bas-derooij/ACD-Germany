@@ -10,7 +10,8 @@
   // Status = colour code of column J in the roadmap sheet.
   const STATUSES = ["gesprek", "samenwerking", "geen"];
   const LEAD_FIELDS = {
-    category: "str",        // Domein (column A)
+    category: "str",        // Categorie (column A of the roadmap)
+    subcategory: "str",     // Subcategorie
     company: "str",         // Onderneming
     contact_name: "str",    // Naam
     phone: "str", email: "str", website: "str",
@@ -27,10 +28,18 @@
     demo_serre: "str",      // Demo-serre
     notes: "str",           // Notitie
   };
-  // Categories that do not count in the "too close" check unless the user turns them on.
+  // Categories and their subcategories, in display order.
+  const TAXONOMY = [
+    ["Dealer", ["GaLa Bau", "Gartencenter", "Online retailer", "Specialisatie"]],
+    ["Certified Assembler", ["Monteur", "Monteur-verkoper"]],
+    ["Ambassador", []],
+  ];
+  const SEP = " › ";
+  // Groups (category, or "category › subcategory") that do not count in the
+  // "too close" check unless the user turns them on.
   const DEFAULT_EXCLUDED_CATEGORIES = [
-    "Merkambassadeur", "Certified assembler", "Galabau verkoper, monteur",
-    "Beurs bezoek", "Beurs deelname",
+    "Ambassador", "Certified Assembler", "Certified Assembler › Monteur",
+    "Certified Assembler › Monteur-verkoper", "Beurs",
   ];
   const DEFAULT_SETTINGS = {
     min_distance_km: 50,
@@ -38,23 +47,53 @@
     excluded_categories: DEFAULT_EXCLUDED_CATEGORIES,
     category_colors: {},
   };
-  // Colours for categories (pin fill). Known categories from the roadmap get a fixed colour.
+  // Pin fill colour per group.
   const KNOWN_CATEGORY_COLORS = {
-    "Dealer Galabau": "#1f6fd1",
-    "Dealer Gartencenter": "#7b3fbf",
-    "Dealer Online retailer": "#0fa3b1",
-    "Dealer gespecialiseerd": "#1b2a6b",
-    "Dealer/merkambassadeur": "#d147a3",
-    "Merkambassadeur": "#f29bd0",
-    "Certified assembler": "#8c5a3c",
-    "Galabau verkoper, monteur": "#6b7280",
-    "Beurs bezoek": "#111827",
-    "Beurs deelname": "#57534e",
+    "Dealer › GaLa Bau": "#1f6fd1",
+    "Dealer › Gartencenter": "#7b3fbf",
+    "Dealer › Online retailer": "#0fa3b1",
+    "Dealer › Specialisatie": "#1b2a6b",
+    "Dealer": "#d147a3",
+    "Certified Assembler › Monteur": "#8c5a3c",
+    "Certified Assembler › Monteur-verkoper": "#d97706",
+    "Certified Assembler": "#78716c",
+    "Ambassador": "#f29bd0",
+    "Beurs": "#111827",
   };
   const PALETTE = ["#2563eb", "#9333ea", "#0891b2", "#be185d", "#4d7c0f", "#a16207",
     "#0f766e", "#7c2d12", "#4338ca", "#64748b", "#db2777", "#155e75"];
+  // "Domein" values from the original roadmap sheet -> [categorie, subcategorie].
+  const LEGACY_CATEGORIES = {
+    "dealer galabau": ["Dealer", "GaLa Bau"],
+    "dealer gartencenter": ["Dealer", "Gartencenter"],
+    "dealer online retailer": ["Dealer", "Online retailer"],
+    "dealer gespecialiseerd": ["Dealer", "Specialisatie"],
+    "dealer/merkambassadeur": ["Dealer", ""],
+    "merkambassadeur": ["Ambassador", ""],
+    "certified assembler": ["Certified Assembler", "Monteur"],
+    "galabau verkoper, monteur": ["Certified Assembler", "Monteur-verkoper"],
+    "beurs bezoek": ["Beurs", ""],
+    "beurs deelname": ["Beurs", ""],
+  };
+  const DATA_VERSION = 3;
+
+  function splitLegacyCategory(value) {
+    const v = String(value || "").trim();
+    const known = LEGACY_CATEGORIES[v.toLowerCase()];
+    if (known) return known.slice();
+    const m = v.match(/^dealer\s+(.+)$/i);
+    if (m) return ["Dealer", m[1]];
+    return [v, ""];
+  }
+
+  function groupKey(lead) {
+    const cat = (lead.category || "").trim() || NO_CATEGORY;
+    const sub = (lead.subcategory || "").trim();
+    return sub ? cat + SEP + sub : cat;
+  }
+
   const STORAGE_KEY = "acd-germany-leads-v1";
-  const NO_CATEGORY = "Zonder domein";
+  const NO_CATEGORY = "Zonder categorie";
 
   class HttpError extends Error {
     constructor(status, message) { super(message); this.status = status; }
@@ -65,7 +104,7 @@
   const companyKey = (s) => String(s || "").trim().toLowerCase();
 
   function emptyDb() {
-    return { next_lead_id: 1, next_activity_id: 1, leads: [], activities: [], settings: {} };
+    return { version: DATA_VERSION, next_lead_id: 1, next_activity_id: 1, leads: [], activities: [], settings: {} };
   }
 
   // Old status values (before the roadmap import) mapped to the new colour statuses.
@@ -75,6 +114,30 @@
     for (const lead of db.leads) {
       if (!STATUSES.includes(lead.status)) lead.status = OLD_STATUS[lead.status] || "gesprek";
       if (lead.category === undefined) lead.category = "";
+      if (lead.subcategory === undefined) lead.subcategory = "";
+    }
+    if ((db.version || 0) < DATA_VERSION) {
+      // Version 3: "Domein" split into Categorie + Subcategorie.
+      const renamed = (old) => {
+        const [category, subcategory] = splitLegacyCategory(old);
+        return groupKey({ category, subcategory });
+      };
+      for (const lead of db.leads) {
+        if (!lead.subcategory) [lead.category, lead.subcategory] = splitLegacyCategory(lead.category);
+      }
+      const settings = db.settings || (db.settings = {});
+      if (Array.isArray(settings.excluded_categories)) {
+        settings.excluded_categories = [...new Set(settings.excluded_categories.map(renamed))];
+      }
+      if (settings.category_colors) {
+        const colors = {};
+        for (const [k, c] of Object.entries(settings.category_colors)) {
+          const key = renamed(k);
+          if (!colors[key]) colors[key] = KNOWN_CATEGORY_COLORS[key] || c;
+        }
+        settings.category_colors = colors;
+      }
+      db.version = DATA_VERSION;
     }
     return db;
   }
@@ -113,7 +176,13 @@
     function load() {
       try {
         const raw = storage && storage.getItem(STORAGE_KEY);
-        if (raw) return migrate(JSON.parse(raw));
+        if (raw) {
+          const db = JSON.parse(raw);
+          const version = db.version;
+          migrate(db);
+          if (db.version !== version) storage.setItem(STORAGE_KEY, JSON.stringify(db));
+          return db;
+        }
       } catch (e) { /* fall through */ }
       return memoryDb ? JSON.parse(JSON.stringify(memoryDb)) : emptyDb();
     }
@@ -143,7 +212,7 @@
       const colors = { ...(db.settings.category_colors || {}) };
       const used = new Set(Object.values(colors));
       for (const lead of db.leads) {
-        const cat = lead.category || NO_CATEGORY;
+        const cat = groupKey(lead);
         if (colors[cat]) continue;
         const color = KNOWN_CATEGORY_COLORS[cat] ||
           PALETTE.find((c) => !used.has(c)) || PALETTE[Object.keys(colors).length % PALETTE.length];
@@ -215,7 +284,7 @@
       if ("excluded_categories" in data) {
         const v = data.excluded_categories;
         if (!Array.isArray(v) || v.some((s) => typeof s !== "string")) {
-          throw bad("excluded_categories moet een lijst van domeinen zijn");
+          throw bad("excluded_categories moet een lijst van categorieën zijn");
         }
         db.settings.excluded_categories = v;
       }
@@ -339,7 +408,10 @@
     return { request, importLeads, exportBackup, importBackup, persistent };
   }
 
-  const api = { createStore, STATUSES, LEAD_FIELDS, STORAGE_KEY, NO_CATEGORY };
+  const api = {
+    createStore, groupKey, splitLegacyCategory,
+    STATUSES, LEAD_FIELDS, STORAGE_KEY, NO_CATEGORY, TAXONOMY, SEP,
+  };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LeadStore = api;
 })(typeof window !== "undefined" ? window : globalThis);

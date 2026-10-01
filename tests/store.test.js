@@ -1,7 +1,7 @@
 // Run with: npm test
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createStore, STORAGE_KEY } = require("../docs/store.js");
+const { createStore, STORAGE_KEY, splitLegacyCategory, groupKey } = require("../docs/store.js");
 
 function memoryStorage() {
   const data = new Map();
@@ -16,7 +16,8 @@ const BERLIN = { lat: 52.52, lng: 13.405 };
 
 test("lead CRUD with activity log", async () => {
   const store = createStore(memoryStorage());
-  const lead = await store.request("POST", "leads", { company: "Autohaus Berlin", category: "Dealer Galabau", city: "Berlin", ...BERLIN });
+  const lead = await store.request("POST", "leads", { company: "Autohaus Berlin", category: "Dealer", subcategory: "GaLa Bau", city: "Berlin", ...BERLIN });
+  assert.equal(lead.subcategory, "GaLa Bau");
   assert.equal(lead.status, "gesprek");
   assert.equal((await store.request("GET", "leads")).length, 1);
 
@@ -40,18 +41,39 @@ test("data survives a new store on the same storage", async () => {
   assert.equal((await createStore(storage).request("GET", "leads")).length, 1);
 });
 
-test("old statuses are migrated", async () => {
+test("old statuses and Domein values are migrated", async () => {
   const storage = memoryStorage();
   storage.setItem(STORAGE_KEY, JSON.stringify({
-    next_lead_id: 4, next_activity_id: 1, activities: [], settings: {},
+    next_lead_id: 4, next_activity_id: 1, activities: [],
+    settings: {
+      excluded_categories: ["Merkambassadeur", "Galabau verkoper, monteur"],
+      category_colors: { "Dealer Galabau": "#123456", "Merkambassadeur": "#abcdef" },
+    },
     leads: [
-      { id: 1, company: "A", status: "dealer" },
-      { id: 2, company: "B", status: "rejected" },
-      { id: 3, company: "C", status: "contacted" },
+      { id: 1, company: "A", status: "dealer", category: "Dealer Galabau" },
+      { id: 2, company: "B", status: "rejected", category: "Merkambassadeur" },
+      { id: 3, company: "C", status: "contacted", category: "Galabau verkoper, monteur" },
     ],
   }));
-  const leads = await createStore(storage).request("GET", "leads");
+  const store = createStore(storage);
+  const leads = await store.request("GET", "leads");
   assert.deepEqual(leads.map((l) => l.status), ["samenwerking", "geen", "gesprek"]);
+  assert.deepEqual(leads.map(groupKey), ["Dealer › GaLa Bau", "Ambassador", "Certified Assembler › Monteur-verkoper"]);
+  const s = await store.request("GET", "settings");
+  assert.deepEqual(s.excluded_categories, ["Ambassador", "Certified Assembler › Monteur-verkoper"]);
+  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#1f6fd1");
+  assert.equal(s.category_colors["Ambassador"], "#f29bd0");
+
+  // Migration runs once: a later edit is not split again.
+  await store.request("PUT", "leads/1", { category: "Dealer", subcategory: "" });
+  assert.equal(groupKey((await store.request("GET", "leads"))[0]), "Dealer");
+});
+
+test("splitLegacyCategory", () => {
+  assert.deepEqual(splitLegacyCategory("Dealer gespecialiseerd"), ["Dealer", "Specialisatie"]);
+  assert.deepEqual(splitLegacyCategory("Certified assembler"), ["Certified Assembler", "Monteur"]);
+  assert.deepEqual(splitLegacyCategory("Dealer Nieuw type"), ["Dealer", "Nieuw type"]);
+  assert.deepEqual(splitLegacyCategory("Iets anders"), ["Iets anders", ""]);
 });
 
 test("validation", async () => {
@@ -68,15 +90,15 @@ test("settings and category colours", async () => {
   let s = await store.request("GET", "settings");
   assert.equal(s.min_distance_km, 50);
   assert.deepEqual(s.ignore_statuses, ["geen"]);
-  assert.ok(s.excluded_categories.includes("Merkambassadeur"));
+  assert.ok(s.excluded_categories.includes("Ambassador"));
 
-  await store.request("POST", "leads", { company: "A", category: "Dealer Galabau" });
+  await store.request("POST", "leads", { company: "A", category: "Dealer", subcategory: "GaLa Bau" });
   await store.request("POST", "leads", { company: "B", category: "Iets nieuws" });
   await store.request("POST", "leads", { company: "C" });
   s = await store.request("GET", "settings");
-  assert.equal(s.category_colors["Dealer Galabau"], "#1f6fd1");
+  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#1f6fd1");
   assert.match(s.category_colors["Iets nieuws"], /^#[0-9a-f]{6}$/);
-  assert.ok(s.category_colors["Zonder domein"]);
+  assert.ok(s.category_colors["Zonder categorie"]);
 
   s = await store.request("PUT", "settings", {
     min_distance_km: "20", excluded_categories: ["Iets nieuws"], category_colors: { "Iets nieuws": "#123456" },
@@ -84,7 +106,7 @@ test("settings and category colours", async () => {
   assert.equal(s.min_distance_km, 20);
   assert.deepEqual(s.excluded_categories, ["Iets nieuws"]);
   assert.equal(s.category_colors["Iets nieuws"], "#123456");
-  assert.equal(s.category_colors["Dealer Galabau"], "#1f6fd1");
+  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#1f6fd1");
 });
 
 test("importLeads creates and updates by company name", async () => {

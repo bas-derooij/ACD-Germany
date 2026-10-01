@@ -51,7 +51,7 @@
             <select id="categoryFilter"></select>
             <select id="statusFilter"></select>
             <select id="sortBy">
-              <option value="category">Sorteer: Domein</option>
+              <option value="category">Sorteer: Categorie</option>
               <option value="company">Sorteer: Naam</option>
               <option value="city">Sorteer: Gemeente</option>
               <option value="updated_at">Sorteer: Laatst gewijzigd</option>
@@ -100,7 +100,8 @@
         <fieldset>
           <legend>Lead</legend>
           <label class="full">Onderneming *<input name="company" required></label>
-          <label>Domein<input name="category" list="categories" placeholder="bv. Dealer Galabau"></label>
+          <label>Categorie<input name="category" list="categories" placeholder="bv. Dealer"></label>
+          <label>Subcategorie<input name="subcategory" list="subcategories" placeholder="bv. GaLa Bau"></label>
           <label>Status<select name="status"></select></label>
         </fieldset>
 
@@ -181,7 +182,7 @@
         <button id="closeExport" class="icon-btn" type="button" aria-label="Sluiten">×</button>
       </header>
       <div class="modal-body">
-        <h4>Domeinen</h4>
+        <h4>Categorieën</h4>
         <p class="modal-links"><a href="#" data-check="cat:all">Alles</a> · <a href="#" data-check="cat:none">Niets</a> ·
           <a href="#" data-check="cat:dealers">Alleen dealers</a></p>
         <div id="exportCategories" class="check-grid"></div>
@@ -189,7 +190,8 @@
         <div id="exportStatuses" class="check-grid"></div>
         <h4>Indeling</h4>
         <label class="radio"><input type="radio" name="layout" value="single" checked> Eén tabblad met alle geselecteerde leads</label>
-        <label class="radio"><input type="radio" name="layout" value="per-category"> Een overzicht + één tabblad per domein</label>
+        <label class="radio"><input type="radio" name="layout" value="category"> Een overzicht + één tabblad per categorie</label>
+        <label class="radio"><input type="radio" name="layout" value="subcategory"> Een overzicht + één tabblad per subcategorie</label>
         <p id="exportCount" class="hint"></p>
       </div>
       <div class="drawer-actions modal-actions">
@@ -201,6 +203,7 @@
   </div>
 
   <datalist id="categories"></datalist>
+  <datalist id="subcategories"></datalist>
   <datalist id="states">
     <option>Baden-Württemberg</option><option>Bayern</option><option>Berlin</option>
     <option>Brandenburg</option><option>Bremen</option><option>Hamburg</option>

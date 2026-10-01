@@ -8,6 +8,8 @@
 (function (root) {
   "use strict";
 
+  const Store = root.LeadStore || (typeof require !== "undefined" ? require("./store.js") : null);
+
   const STATUS_INFO = {
     gesprek: { label: "Gesprek", color: "FFC000" },
     samenwerking: { label: "Samenwerking", color: "00B050" },
@@ -16,7 +18,9 @@
 
   // Header text in the sheet -> lead field. Column I (Regio Duitsland) is ignored on purpose.
   const HEADER_FIELDS = {
-    "domein": "category",
+    "domein": "category",       // original roadmap: split into categorie + subcategorie
+    "categorie": "category",
+    "subcategorie": "subcategory",
     "onderneming": "company",
     "naam": "contact_name",
     "telefoonnummer": "phone",
@@ -32,17 +36,11 @@
     "notitie": "notes",
   };
   const EXPORT_COLUMNS = [
-    ["Domein", "category", 24], ["Onderneming", "company", 30], ["Naam", "contact_name", 24],
+    ["Categorie", "category", 20], ["Subcategorie", "subcategory", 18], ["Onderneming", "company", 30], ["Naam", "contact_name", 24],
     ["Telefoonnummer", "phone", 20], ["Mailadres", "email", 30], ["Website", "website", 30],
     ["Locatie", "city", 20], ["Deelstaat", "state", 20], ["Status", "status", 18],
     ["Status informatie", "status_info", 45], ["Volgende actie", "next_action", 35],
     ["Laatste bezoek", "last_visit", 15], ["Demo-serre", "demo_serre", 20], ["Notitie", "notes", 45],
-  ];
-  // Order of the groups in the original roadmap; other categories follow alphabetically.
-  const CATEGORY_ORDER = [
-    "Merkambassadeur", "Certified assembler", "Dealer gespecialiseerd", "Dealer/merkambassadeur",
-    "Dealer Galabau", "Dealer Gartencenter", "Dealer Online retailer", "Galabau verkoper, monteur",
-    "Beurs bezoek", "Beurs deelname",
   ];
   const EMPTY_MARKERS = new Set(["/", "?", "-"]);
 
@@ -138,6 +136,8 @@
         if (Object.values(data).every((v) => !v)) { result.skipped.empty++; continue; }
         // Rows without a company (e.g. trade fairs) use the name column as company.
         if (!data.company && data.contact_name) { data.company = data.contact_name; data.contact_name = ""; }
+        // Old "Domein" values such as "Dealer Galabau" become Dealer › GaLa Bau.
+        if (!data.subcategory) [data.category, data.subcategory] = Store.splitLegacyCategory(data.category);
         const label = `Rij ${r} (${data.company || "zonder naam"})`;
 
         const statusCell = columns.status ? row.getCell(columns.status) : null;
@@ -154,20 +154,24 @@
   }
 
   /* ---------- export ---------- */
-  function categoryRank(cat) {
-    const i = CATEGORY_ORDER.indexOf(cat);
-    return i === -1 ? CATEGORY_ORDER.length : i;
+  // Order: categories and subcategories as in the taxonomy, unknown ones alphabetically after.
+  function compareGroups(a, b) {
+    const cats = Store.TAXONOMY.map(([c]) => c);
+    const rank = (list, v) => { const i = list.indexOf(v); return i === -1 ? list.length : i; };
+    const subs = (cat) => (Store.TAXONOMY.find(([c]) => c === cat) || [null, []])[1];
+    const ca = a.category || "", cb = b.category || "";
+    return rank(cats, ca) - rank(cats, cb) || ca.localeCompare(cb, "de") ||
+      rank(subs(ca), a.subcategory || "") - rank(subs(ca), b.subcategory || "") ||
+      (a.subcategory || "").localeCompare(b.subcategory || "", "de");
   }
 
   function sortLeads(leads) {
     return [...leads].sort((a, b) =>
-      categoryRank(a.category) - categoryRank(b.category) ||
-      (a.category || "").localeCompare(b.category || "", "de") ||
-      a.company.localeCompare(b.company, "de", { sensitivity: "base" }));
+      compareGroups(a, b) || a.company.localeCompare(b.company, "de", { sensitivity: "base" }));
   }
 
   function sheetName(name, used) {
-    let base = String(name || "Zonder domein").replace(/[\[\]:*?\/\\]/g, "-").slice(0, 31) || "Blad";
+    let base = String(name || Store.NO_CATEGORY).replace(/[\[\]:*?\/\\]/g, "-").slice(0, 31) || "Blad";
     let candidate = base, i = 2;
     while (used.has(candidate.toLowerCase())) candidate = `${base.slice(0, 27)} (${i++})`;
     used.add(candidate.toLowerCase());
@@ -182,7 +186,7 @@
     Object.assign(ws.getCell("A1"), { value: "ROADMAP ACD DUITSLAND" });
     ws.getCell("A1").font = { bold: true, size: 14 };
     ws.mergeCells("H1:K1");
-    ws.getCell("H1").value = "Legende: ROOD = geen samenwerking   |   ORANJE = gesprek loopt   |   GROEN = samenwerking";
+    ws.getCell("H1").value = "Legende: ROOD = geen samenwerking   |   ORANJE = gesprek   |   GROEN = samenwerking";
     ws.getCell("H1").font = { italic: true };
     ws.getCell("A2").value = "Update datum:";
     ws.getCell("A2").font = { bold: true };
@@ -225,18 +229,19 @@
     return ws;
   }
 
-  /* options.perCategory: one tab per domein (plus an overview tab with everything). */
+  /* options.groupBy: "category" or "subcategory" adds one tab per group after an overview tab. */
   function buildRoadmap(ExcelJS, leads, options = {}) {
     const wb = new ExcelJS.Workbook();
     wb.creator = "ACD Germany lead manager";
     const now = new Date();
     const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const used = new Set();
-    addSheet(wb, sheetName(options.perCategory ? "Overzicht" : "Roadmap", used), leads, today);
-    if (options.perCategory) {
+    const groupBy = options.groupBy;
+    addSheet(wb, sheetName(groupBy ? "Overzicht" : "Roadmap", used), leads, today);
+    if (groupBy) {
       const groups = new Map();
       for (const lead of sortLeads(leads)) {
-        const key = lead.category || "Zonder domein";
+        const key = groupBy === "subcategory" ? Store.groupKey(lead) : (lead.category || Store.NO_CATEGORY);
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(lead);
       }
@@ -293,7 +298,7 @@
 
   const api = {
     readRoadmap, buildRoadmap, classifyColor, cellText, placeQueries, germanState,
-    STATUS_INFO, EXPORT_COLUMNS, CATEGORY_ORDER,
+    STATUS_INFO, EXPORT_COLUMNS, compareGroups,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Roadmap = api;

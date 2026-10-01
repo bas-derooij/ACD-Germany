@@ -30,9 +30,10 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => (
 const fmtKm = (km) => (km < 100 ? km.toFixed(1).replace(".", ",") : Math.round(km)) + " km";
 const hasGeo = (l) => l.lat !== null && l.lat !== undefined && l.lng !== null && l.lng !== undefined;
 const statusOf = (s) => STATUS_INFO[s] || { label: s, color: "#999" };
-const categoryOf = (l) => l.category || NO_CATEGORY;
+// A lead's group: "Categorie › Subcategorie", or only the category. Drives colour, filters and checks.
+const categoryOf = (l) => LeadStore.groupKey(l);
 const colorOf = (cat) => state.settings.category_colors[cat] || "#64748b";
-const isDealer = (cat) => /^dealer/i.test(cat);
+const isDealer = (key) => key === "Dealer" || key.startsWith("Dealer" + LeadStore.SEP);
 
 /* ---------------- storage & helpers ---------------- */
 // All data lives in this browser (localStorage), see store.js.
@@ -160,14 +161,34 @@ function nearestTo(lat, lng, excludeId, limit = 5) {
     .slice(0, limit);
 }
 
+// Groups in use, sorted like the taxonomy: { key, n, category, subcategory }.
+function groupsInUse() {
+  const groups = new Map();
+  for (const l of state.leads) {
+    const key = categoryOf(l);
+    if (!groups.has(key)) {
+      groups.set(key, { key, n: 0, category: l.category || NO_CATEGORY, subcategory: l.subcategory || "" });
+    }
+    groups.get(key).n++;
+  }
+  return [...groups.values()].sort(Roadmap.compareGroups);
+}
+
 function categoriesInUse() {
-  const cats = new Map();
-  for (const l of state.leads) cats.set(categoryOf(l), (cats.get(categoryOf(l)) || 0) + 1);
-  const order = Roadmap.CATEGORY_ORDER;
-  return [...cats.entries()].sort(([a], [b]) => {
-    const ia = order.indexOf(a), ib = order.indexOf(b);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, "de");
-  });
+  return groupsInUse().map((g) => [g.key, g.n]);
+}
+
+// Render groups with a header per category; subcategories are indented under it.
+function groupedHtml(itemFn) {
+  let html = "", current = null;
+  for (const g of groupsInUse()) {
+    const hasSubs = Boolean(g.subcategory) || current === g.category;
+    if (g.subcategory && current !== g.category) html += `<div class="group-head">${esc(g.category)}</div>`;
+    current = hasSubs ? g.category : null;
+    const label = g.subcategory || (hasSubs ? "Zonder subcategorie" : g.category);
+    html += itemFn(g, label, hasSubs);
+  }
+  return html;
 }
 
 /* ---------------- map ---------------- */
@@ -220,7 +241,7 @@ function renderMap() {
         fill: false, interactive: false,
       }).addTo(layers.markers);
     }
-    // Fill = domein (column A), ring = status (column J).
+    // Fill = (sub)categorie, ring = status (column J).
     const marker = L.circleMarker([lead.lat, lead.lng], {
       radius: selected ? 11 : 8,
       color: statusOf(lead.status).color, weight: 4,
@@ -307,10 +328,10 @@ map.on("click", (e) => {
 function renderLegend() {
   const cats = categoriesInUse();
   $("#legendBody").innerHTML = `
-    <div class="legend-title">Domein (vulling)</div>
-    ${cats.length ? cats.map(([cat, n]) => `<label class="legend-item" title="Klik om de kleur te wijzigen">
-        <input type="color" class="cat-color" data-cat="${esc(cat)}" value="${colorOf(cat)}">
-        <span>${esc(cat)} <span class="muted">(${n})</span></span></label>`).join("")
+    <div class="legend-title">Categorie (vulling)</div>
+    ${cats.length ? groupedHtml((g, label, sub) => `<label class="legend-item${sub ? " sub" : ""}" title="Klik om de kleur te wijzigen">
+        <input type="color" class="cat-color" data-cat="${esc(g.key)}" value="${colorOf(g.key)}">
+        <span>${esc(label)} <span class="muted">(${g.n})</span></span></label>`)
       : `<div class="legend-item muted">Nog geen leads</div>`}
     <div class="legend-title">Status (rand)</div>
     ${Object.values(STATUS_INFO).map((s) =>
@@ -335,9 +356,10 @@ function filteredLeads() {
   const cat = $("#categoryFilter").value;
   return state.leads.filter((l) => {
     if (status && l.status !== status) return false;
-    if (cat && categoryOf(l) !== cat) return false;
+    if (cat.startsWith("c:") && (l.category || NO_CATEGORY) !== cat.slice(2)) return false;
+    if (cat.startsWith("g:") && categoryOf(l) !== cat.slice(2)) return false;
     if (!q) return true;
-    return [l.company, l.city, l.contact_name, l.state, l.email, l.category, l.status_info,
+    return [l.company, l.city, l.contact_name, l.state, l.email, l.category, l.subcategory, l.status_info,
       l.next_action, l.notes, l.demo_serre]
       .some((v) => (v || "").toLowerCase().includes(q));
   });
@@ -346,9 +368,8 @@ function filteredLeads() {
 function sortedLeads(list) {
   const key = $("#sortBy").value;
   const byText = (k) => (a, b) => (a[k] || "").localeCompare(b[k] || "", "de", { sensitivity: "base" });
-  const order = categoriesInUse().map(([c]) => c);
   const cmp = {
-    category: (a, b) => order.indexOf(categoryOf(a)) - order.indexOf(categoryOf(b)) || byText("company")(a, b),
+    category: (a, b) => Roadmap.compareGroups(a, b) || byText("company")(a, b),
     company: byText("company"),
     city: byText("city"),
     updated_at: (a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""),
@@ -360,10 +381,25 @@ function sortedLeads(list) {
 function renderFilters() {
   const keep = (sel) => $(sel).value;
   const cat = keep("#categoryFilter"), status = keep("#statusFilter");
-  const cats = categoriesInUse();
-  fillSelect($("#categoryFilter"), [["", "Alle domeinen"], ...cats.map(([c, n]) => [c, `${c} (${n})`])], cat);
+  // Category filter: each category, followed by its subcategories (indented).
+  const options = [["", "Alle categorieën"]];
+  const perCategory = new Map();
+  for (const g of groupsInUse()) {
+    if (!perCategory.has(g.category)) perCategory.set(g.category, []);
+    perCategory.get(g.category).push(g);
+  }
+  for (const [category, groups] of perCategory) {
+    const total = groups.reduce((n, g) => n + g.n, 0);
+    options.push(["c:" + category, `${category} (${total})`]);
+    for (const g of groups) {
+      if (g.subcategory) options.push(["g:" + g.key, `\u00a0\u00a0\u00a0${g.subcategory} (${g.n})`]);
+    }
+  }
+  fillSelect($("#categoryFilter"), options, cat);
   fillSelect($("#statusFilter"), [["", "Alle statussen"], ...Object.entries(STATUS_INFO).map(([k, s]) => [k, s.label])], status);
-  $("#categories").innerHTML = cats.map(([c]) => `<option value="${esc(c)}">`).join("");
+  const allCategories = [...new Set([...LeadStore.TAXONOMY.map(([c]) => c), ...perCategory.keys()])]
+    .filter((c) => c !== NO_CATEGORY);
+  $("#categories").innerHTML = allCategories.map((c) => `<option value="${esc(c)}">`).join("");
 }
 
 function renderList() {
@@ -407,9 +443,9 @@ function renderConflicts() {
     <p>Paren van leads die minder dan <b>${min} km</b> van elkaar liggen (in vogelvlucht).</p>
     <details class="check-settings">
       <summary>Wie telt mee in de afstandscheck?</summary>
-      <div class="check-group"><b>Domeinen</b>
-        ${categoriesInUse().map(([cat]) => `<label><input type="checkbox" class="countCategory" value="${esc(cat)}"
-          ${excluded.includes(cat) ? "" : "checked"}> <i class="swatch" style="background:${colorOf(cat)}"></i>${esc(cat)}</label>`).join("")}
+      <div class="check-group"><b>Categorieën</b>
+        ${groupedHtml((g, label, sub) => `<label class="${sub ? "sub" : ""}"><input type="checkbox" class="countCategory" value="${esc(g.key)}"
+          ${excluded.includes(g.key) ? "" : "checked"}> <i class="swatch" style="background:${colorOf(g.key)}"></i>${esc(label)}</label>`)}
       </div>
       <div class="check-group"><b>Statussen</b>
         ${Object.entries(STATUS_INFO).map(([k, s]) => `<label><input type="checkbox" class="countStatus" value="${k}"
@@ -478,6 +514,15 @@ function fillSelect(sel, entries, current) {
     `<option value="${esc(v)}" ${v === current ? "selected" : ""}>${esc(label)}</option>`).join("");
 }
 
+// Suggest the subcategories of the chosen category (taxonomy + ones already in use).
+function updateSubcategoryOptions() {
+  const cat = form.category.value.trim();
+  const known = (LeadStore.TAXONOMY.find(([c]) => c.toLowerCase() === cat.toLowerCase()) || [null, []])[1];
+  const used = state.leads.filter((l) => (l.category || "").toLowerCase() === cat.toLowerCase() && l.subcategory)
+    .map((l) => l.subcategory);
+  $("#subcategories").innerHTML = [...new Set([...known, ...used])].map((s) => `<option value="${esc(s)}">`).join("");
+}
+
 function openDrawer(lead, coords = null) {
   state.editing = lead;
   form.reset();
@@ -489,6 +534,7 @@ function openDrawer(lead, coords = null) {
     if (!el.name || el.name === "status") continue;
     el.value = lead && lead[el.name] !== null && lead[el.name] !== undefined ? lead[el.name] : "";
   }
+  updateSubcategoryOptions();
   if (coords) setCoords(coords.lat, coords.lng);
   else updateCoordsUI();
   $("#deleteLead").hidden = !lead;
@@ -756,9 +802,10 @@ async function geocodeMissing() {
 /* ---------------- Excel export ---------------- */
 function openExportDialog() {
   const cats = categoriesInUse();
-  $("#exportCategories").innerHTML = cats.map(([cat, n]) => `<label><input type="checkbox" name="cat" value="${esc(cat)}" checked>
-    <i class="swatch" style="background:${colorOf(cat)}"></i>${esc(cat)} <span class="muted">(${n})</span></label>`).join("")
-    || `<p class="muted">Nog geen leads.</p>`;
+  $("#exportCategories").innerHTML = cats.length
+    ? groupedHtml((g, label, sub) => `<label class="${sub ? "sub" : ""}"><input type="checkbox" name="cat" value="${esc(g.key)}" checked>
+      <i class="swatch" style="background:${colorOf(g.key)}"></i>${esc(label)} <span class="muted">(${g.n})</span></label>`)
+    : `<p class="muted">Nog geen leads.</p>`;
   $("#exportStatuses").innerHTML = Object.entries(STATUS_INFO).map(([k, s]) => `<label><input type="checkbox" name="status" value="${k}"
     ${k === "geen" ? "" : "checked"}> <i class="swatch" style="background:${s.color}"></i>${esc(s.label)}</label>`).join("");
   updateExportCount();
@@ -781,11 +828,13 @@ async function exportExcel(e) {
   try {
     const leads = exportSelection();
     if (!leads.length) { toast("Selecteer minstens één lead.", true); return; }
-    const perCategory = $("#exportForm").layout.value === "per-category";
-    const wb = Roadmap.buildRoadmap(requireExcel(), leads, { perCategory });
+    const layout = $("#exportForm").layout.value;
+    const wb = Roadmap.buildRoadmap(requireExcel(), leads, { groupBy: layout === "single" ? null : layout });
     const buffer = await wb.xlsx.writeBuffer();
-    const cats = new Set(leads.map(categoryOf));
-    const suffix = cats.size === 1 ? "_" + [...cats][0].replace(/[^\w\-]+/g, "-") : "";
+    const cats = new Set(leads.map((l) => l.category || NO_CATEGORY));
+    const groups = new Set(leads.map(categoryOf));
+    const name = groups.size === 1 ? [...groups][0] : cats.size === 1 ? [...cats][0] : "";
+    const suffix = name ? "_" + name.replace(/[^\w\-]+/g, "-") : "";
     downloadFile(`ROADMAP_ACD_DUITSLAND${suffix}_${today()}.xlsx`,
       new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
     $("#exportDialog").hidden = true;
@@ -858,6 +907,7 @@ function init() {
     else if (!$("#drawer").hidden) closeDrawer();
   });
   form.addEventListener("submit", saveLead);
+  form.category.addEventListener("input", updateSubcategoryOptions);
   $("#deleteLead").addEventListener("click", deleteLead);
   $("#geocodeBtn").addEventListener("click", geocodeAddress);
   $("#pickBtn").addEventListener("click", startPick);

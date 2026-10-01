@@ -13,24 +13,34 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
 ## Wat zit erin
 
 - **Leads in de opmaak van de roadmap**:
-  - Domein, Onderneming, Naam, Telefoonnummer, Mailadres, Website en Locatie (gemeente).
+  - Categorie, Subcategorie, Onderneming, Naam, Telefoonnummer, Mailadres, Website en Locatie (gemeente).
   - Deelstaat, Status, Status informatie, Volgende actie (met datum), Laatste bezoek, Demo-serre en Notitie.
   - Optioneel ook straat en postcode, voor een exacte locatie.
+- **Categorie en subcategorie**:
+
+  | Categorie | Subcategorie |
+  |---|---|
+  | Dealer | GaLa Bau, Gartencenter, Online retailer, Specialisatie |
+  | Certified Assembler | Monteur, Monteur-verkoper |
+  | Ambassador | (geen) |
+
+  Je kunt ook zelf een nieuwe categorie of subcategorie intypen.
 - **Status = kleurcode uit de roadmap**: 🟠 Gesprek, 🟢 Samenwerking, 🔴 Geen samenwerking.
 - **Kaart van Duitsland** met een rode lijn langs de grens. Elke lead is een pin:
-  - de **vulling** is de kleur van het domein (klik in de legende op een kleur om ze te wijzigen);
+  - de **vulling** is de kleur van de subcategorie, of van de categorie als er geen subcategorie is (klik in de legende op een kleur om ze te wijzigen);
   - de **rand** is de status (oranje, groen of rood);
   - een **rode stippelring** en een stippellijn met de afstand betekenen *te dicht bij een andere lead*.
-- **Tabblad "Te dichtbij"**: alle paren leads die dichter dan de minimale afstand (standaard 50 km) bij elkaar liggen. Je kiest per domein en per status wie meetelt. Standaard tellen alle dealer-domeinen mee, maar niet Merkambassadeur, Certified assembler, Galabau verkoper/monteur, de beurzen en *Geen samenwerking*.
+- **Tabblad "Te dichtbij"**: alle paren leads die dichter dan de minimale afstand (standaard 50 km) bij elkaar liggen. Je kiest per (sub)categorie en per status wie meetelt. Standaard tellen alle dealers mee, maar niet Ambassador, Certified Assembler en *Geen samenwerking*.
 - **Klik op de kaart** om een plek te controleren: je ziet de dichtstbijzijnde leads en kunt er meteen een nieuwe lead aanmaken.
 - **Activiteitenlog** per lead (telefoon, mail, videocall, bezoek, notitie). Statuswijzigingen worden automatisch gelogd.
 
 ## Data-menu
 
-- **Exporteren naar Excel…**: maakt een Excel-bestand in de opmaak van de roadmap, met een gekleurde statuskolom. Je kiest welke domeinen en statussen erin komen, met één tabblad of een overzicht plus één tabblad per domein.
+- **Exporteren naar Excel…**: maakt een Excel-bestand in de opmaak van de roadmap, met een gekleurde statuskolom. Je kiest welke (sub)categorieën en statussen erin komen, met één tabblad of een overzicht plus één tabblad per categorie of per subcategorie.
 - **Importeren uit roadmap (Excel)…**: leest een roadmap-bestand in.
   - Alleen **groene en oranje** rijen worden toegevoegd. Rode rijen en rijen zonder kleur worden overgeslagen.
   - Kolom I (Regio Duitsland) wordt niet gebruikt.
+  - Een oude kolom *Domein* wordt automatisch opgesplitst, bv. "Dealer Galabau" → Dealer › GaLa Bau en "Merkambassadeur" → Ambassador.
   - Bestaande leads met dezelfde ondernemingsnaam worden bijgewerkt.
   - Rijen zonder onderneming (beurzen) krijgen de naam uit kolom C.
   - Daarna zet de app automatisch een pin op de **gemeente** (kolom G).

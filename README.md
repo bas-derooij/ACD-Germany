@@ -69,7 +69,7 @@ De site staat in `docs/`:
 - `app.js`: kaart, lijst, formulieren, import en export
 - `store.js`: opslag in de browser (localStorage) en back-ups
 - `roadmap.js`: de roadmap-sheet lezen en schrijven (met ExcelJS)
-- `germany.js`: de grens van Duitsland (Natural Earth, publiek domein)
+- `germany.js`: de grens van Duitsland, zonder eilanden (Natural Earth, publiek domein)
 - `vendor/`: Leaflet (kaart) en ExcelJS (Excel)
 
 Lokaal draaien: `python3 -m http.server --directory docs 8000` en open http://localhost:8000.

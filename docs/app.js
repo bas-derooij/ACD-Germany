@@ -1012,6 +1012,9 @@ function init() {
     }
   });
 
+  // Always start with circles and lines off (also after a refresh that restores form state).
+  $("#showCircles").checked = false;
+  $("#showLines").checked = false;
   $("#showCircles").addEventListener("change", applyLayerToggles);
   $("#showLines").addEventListener("change", applyLayerToggles);
 

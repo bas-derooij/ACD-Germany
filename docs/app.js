@@ -853,6 +853,22 @@ async function restoreBackup(file) {
   } catch (err) { toast(err.message, true); }
 }
 
+async function clearAllLeads() {
+  const n = state.leads.length;
+  if (!n) { toast("Er zijn geen leads om te verwijderen."); return; }
+  if (!confirm(`Alle ${n} leads en hun activiteitenlog verwijderen?\n\n` +
+    "Er wordt eerst automatisch een back-up gedownload, zodat je alles kunt terugzetten. " +
+    "Je instellingen (kleuren, afstandscheck) blijven behouden.")) return;
+  try {
+    downloadFile(`acd-leads-backup-${today()}.json`, store.exportBackup(), "application/json");
+    const { removed } = store.clearLeads();
+    state.selectedId = null;
+    closeDrawer();
+    await reload();
+    toast(`${removed} leads verwijderd. Back-up gedownload. Je kunt nu opnieuw importeren via Data → Importeren uit roadmap.`, false, 8000);
+  } catch (err) { toast(err.message, true); }
+}
+
 /* ---------------- wiring ---------------- */
 function init() {
   ["#search", "#statusFilter", "#categoryFilter", "#sortBy"].forEach((sel) =>
@@ -948,6 +964,7 @@ function init() {
   $("#backupBtn").addEventListener("click", () =>
     downloadFile(`acd-leads-backup-${today()}.json`, store.exportBackup(), "application/json"));
   $("#restoreBtn").addEventListener("click", () => $("#restoreFile").click());
+  $("#clearBtn").addEventListener("click", clearAllLeads);
   $("#restoreFile").addEventListener("change", (e) => {
     if (e.target.files[0]) restoreBackup(e.target.files[0]);
     e.target.value = "";

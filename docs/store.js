@@ -329,6 +329,16 @@
       return { created, updated, errors };
     }
 
+    // Remove all leads and their activity logs; settings (colours, distance check) are kept.
+    function clearLeads() {
+      const db = load();
+      const removed = db.leads.length;
+      db.leads = [];
+      db.activities = [];
+      save(db);
+      return { removed };
+    }
+
     function exportBackup() {
       return JSON.stringify({ app: "acd-germany-leads", version: 2, exported_at: nowIso(), db: load() }, null, 2);
     }
@@ -405,7 +415,7 @@
       throw notFound("Niet gevonden");
     }
 
-    return { request, importLeads, exportBackup, importBackup, persistent };
+    return { request, importLeads, clearLeads, exportBackup, importBackup, persistent };
   }
 
   const api = {

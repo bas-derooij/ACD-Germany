@@ -56,6 +56,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .menu-list button { text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
 .menu-list button:hover { background: var(--accent-soft); }
+.menu-list button.danger-item { color: var(--danger); }
+.menu-list button.danger-item:hover { background: var(--danger-soft); }
 .menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; width: 100%; }
 .menu-note { margin: 6px 10px 4px; font-size: 12px; color: var(--muted); }
 .icon-btn { border: 0; background: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--muted); }

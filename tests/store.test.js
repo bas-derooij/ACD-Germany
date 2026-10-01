@@ -129,6 +129,18 @@ test("importLeads creates and updates by company name", async () => {
   assert.equal(after.lat, 48.07, "location kept when the municipality did not change");
 });
 
+test("clearLeads removes leads and activities but keeps settings", async () => {
+  const store = createStore(memoryStorage());
+  await store.request("PUT", "settings", { min_distance_km: 30 });
+  const lead = await store.request("POST", "leads", { company: "A" });
+  await store.request("POST", `leads/${lead.id}/activities`, { text: "notitie" });
+  assert.deepEqual(store.clearLeads(), { removed: 1 });
+  assert.equal((await store.request("GET", "leads")).length, 0);
+  assert.equal((await store.request("GET", "settings")).min_distance_km, 30);
+  const again = store.importLeads([{ data: { company: "A", status: "gesprek" } }]);
+  assert.equal(again.created, 1);
+});
+
 test("backup and restore", async () => {
   const a = createStore(memoryStorage());
   const lead = await a.request("POST", "leads", { company: "A" });

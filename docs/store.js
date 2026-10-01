@@ -55,10 +55,10 @@
   };
   // Pin fill colour per group.
   const KNOWN_CATEGORY_COLORS = {
-    "Dealer › GaLa Bau": "#1f6fd1",
-    "Dealer › Gartencenter": "#7b3fbf",
+    "Dealer › GaLa Bau": "#c2410c",        // dark orange
+    "Dealer › Gartencenter": "#1b5e20",    // dark green
     "Dealer › Online retailer": "#0fa3b1",
-    "Dealer › Gespecialiseerd": "#1b2a6b",
+    "Dealer › Gespecialiseerd": "#d32f2f", // red
     "Dealer": "#d147a3",
     "Certified Assembler › Monteur": "#8c5a3c",
     "Certified Assembler › Monteur-verkoper": "#d97706",
@@ -83,7 +83,9 @@
     "beurs bezoek": ["Beurs", "Bezoek"],
     "beurs deelname": ["Beurs", "Deelname"],
   };
-  const DATA_VERSION = 5;
+  const DATA_VERSION = 6;
+  // Colours changed on request; applied to stored settings once (data version 6).
+  const UPDATED_COLORS_V6 = ["Dealer › GaLa Bau", "Dealer › Gartencenter", "Dealer › Gespecialiseerd"];
 
   // Compare names ignoring case, spaces, hyphens and punctuation ("Monteur - verkoper" = "Monteur-verkoper").
   const loose = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9äöüß]/g, "");
@@ -165,7 +167,8 @@
         const colors = {};
         for (const [k, c] of Object.entries(settings.category_colors)) {
           const key = rename(k);
-          if (!colors[key]) colors[key] = KNOWN_CATEGORY_COLORS[key] || c;
+          // Renamed groups get the colour of their new name; unchanged ones keep the user's colour.
+          if (!colors[key]) colors[key] = key !== k ? KNOWN_CATEGORY_COLORS[key] || c : c;
         }
         settings.category_colors = colors;
       }
@@ -190,6 +193,9 @@
     });
     if (settings.excluded_categories && settings.excluded_categories.includes("Beurs")) {
       settings.excluded_categories = [...new Set([...settings.excluded_categories, "Beurs › Bezoek", "Beurs › Deelname"])];
+    }
+    if (version < 6 && settings.category_colors) {
+      for (const key of UPDATED_COLORS_V6) settings.category_colors[key] = KNOWN_CATEGORY_COLORS[key];
     }
     db.version = DATA_VERSION;
     return db;

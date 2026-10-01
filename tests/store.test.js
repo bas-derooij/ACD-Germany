@@ -61,7 +61,7 @@ test("old statuses and Domein values are migrated", async () => {
   assert.deepEqual(leads.map(groupKey), ["Dealer › GaLa Bau", "Ambassadeur", "Certified Assembler › Monteur-verkoper"]);
   const s = await store.request("GET", "settings");
   assert.deepEqual(s.excluded_categories, ["Ambassadeur", "Certified Assembler › Monteur-verkoper"]);
-  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#1f6fd1");
+  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#c2410c");
   assert.equal(s.category_colors["Ambassadeur"], "#f29bd0");
 
   // Migration runs once: a later edit is not split again.
@@ -83,7 +83,7 @@ test("version 3 data is renamed (Ambassador, Specialisatie, Beurs)", async () =>
   assert.deepEqual((await store.request("GET", "leads")).map(groupKey), ["Ambassadeur", "Dealer › Gespecialiseerd"]);
   const s = await store.request("GET", "settings");
   assert.deepEqual(s.excluded_categories, ["Ambassadeur", "Beurs", "Beurs › Bezoek", "Beurs › Deelname"]);
-  assert.equal(s.category_colors["Dealer › Gespecialiseerd"], "#1b2a6b");
+  assert.equal(s.category_colors["Dealer › Gespecialiseerd"], "#d32f2f");
 });
 
 test("spelling variants map to the existing (sub)categories", async () => {
@@ -108,6 +108,18 @@ test("spelling variants map to the existing (sub)categories", async () => {
   // New input is normalised too.
   const lead = await store.request("POST", "leads", { company: "C", category: "CERTIFIED ASSEMBLER", subcategory: "monteur" });
   assert.equal(groupKey(lead), "Certified Assembler › Monteur");
+});
+
+test("version 5 colours for Gartencenter, GaLa Bau and Gespecialiseerd are updated", async () => {
+  const storage = memoryStorage();
+  storage.setItem(STORAGE_KEY, JSON.stringify({
+    version: 5, next_lead_id: 1, next_activity_id: 1, activities: [], leads: [],
+    settings: { category_colors: { "Dealer › GaLa Bau": "#1f6fd1", "Dealer › Gartencenter": "#7b3fbf", "Dealer › Online retailer": "#0fa3b1", "Ambassadeur": "#123456" } },
+  }));
+  const c = (await createStore(storage).request("GET", "settings")).category_colors;
+  assert.deepEqual([c["Dealer › Gartencenter"], c["Dealer › GaLa Bau"], c["Dealer › Gespecialiseerd"]], ["#1b5e20", "#c2410c", "#d32f2f"]);
+  assert.equal(c["Dealer › Online retailer"], "#0fa3b1");
+  assert.equal(c["Ambassadeur"], "#123456", "other colours are kept");
 });
 
 test("splitLegacyCategory", () => {
@@ -138,7 +150,7 @@ test("settings and category colours", async () => {
   await store.request("POST", "leads", { company: "B", category: "Iets nieuws" });
   await store.request("POST", "leads", { company: "C" });
   s = await store.request("GET", "settings");
-  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#1f6fd1");
+  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#c2410c");
   assert.match(s.category_colors["Iets nieuws"], /^#[0-9a-f]{6}$/);
   assert.ok(s.category_colors["Zonder categorie"]);
 
@@ -148,7 +160,7 @@ test("settings and category colours", async () => {
   assert.equal(s.min_distance_km, 20);
   assert.deepEqual(s.excluded_categories, ["Iets nieuws"]);
   assert.equal(s.category_colors["Iets nieuws"], "#123456");
-  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#1f6fd1");
+  assert.equal(s.category_colors["Dealer › GaLa Bau"], "#c2410c");
 });
 
 test("importLeads creates and updates by company name", async () => {

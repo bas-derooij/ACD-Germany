@@ -141,9 +141,12 @@ function computeDistances() {
     for (let j = i + 1; j < located.length; j++) {
       const b = located[j];
       const km = haversineKm(a.lat, a.lng, b.lat, b.lng);
-      for (const [x, y] of [[a, b], [b, a]]) {
-        const cur = state.nearest.get(x.id);
-        if (!cur || km < cur.km) state.nearest.set(x.id, { lead: y, km });
+      // Nearest lead within the same category (a dealer is compared with dealers only).
+      if ((a.category || NO_CATEGORY) === (b.category || NO_CATEGORY)) {
+        for (const [x, y] of [[a, b], [b, a]]) {
+          const cur = state.nearest.get(x.id);
+          if (!cur || km < cur.km) state.nearest.set(x.id, { lead: y, km });
+        }
       }
       if (km < min && counts(a) && counts(b)) {
         state.conflicts.push({ a, b, km });
@@ -518,9 +521,15 @@ function renderList() {
     const near = state.nearest.get(l.id);
     let nearHtml = "";
     if (!hasGeo(l)) nearHtml = `<div class="near nogeo">⚠ Geen locatie – open de lead om de locatie te kiezen</div>`;
-    else if (near) {
-      const bad = state.conflictIds.has(l.id) && near.km < min && counts(near.lead);
-      nearHtml = `<div class="near ${bad ? "bad" : ""}">${bad ? "⚠ " : ""}Dichtstbij: ${esc(near.lead.company)} (${fmtKm(near.km)})</div>`;
+    else {
+      const bad = near && near.km < min && counts(l) && counts(near.lead);
+      if (near) {
+        nearHtml = `<div class="near ${bad ? "bad" : ""}">${bad ? "⚠ " : ""}Dichtstbijzijnde ${esc(l.category || NO_CATEGORY)}: ${esc(near.lead.company)} (${fmtKm(near.km)})</div>`;
+      }
+      // Too close to a lead of another category that also counts in the check.
+      if (state.conflictIds.has(l.id) && !bad) {
+        nearHtml += `<div class="near bad">⚠ Te dicht bij een lead uit een andere categorie – zie "Te dichtbij"</div>`;
+      }
     }
     return `<li class="lead-item ${l.id === state.selectedId ? "selected" : ""}" data-id="${l.id}">
       <span class="dot" style="background:${colorOf(cat)};border-color:${statusOf(l.status).color}"></span>

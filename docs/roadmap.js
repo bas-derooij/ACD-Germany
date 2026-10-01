@@ -121,9 +121,14 @@
       }
       if (!headerRow) continue;
       const columns = {};
+      let legacyDomein = false; // original roadmap with one "Domein" column
       ws.getRow(headerRow).eachCell((cell, col) => {
-        const field = HEADER_FIELDS[norm(cellText(cell.value))];
-        if (field && !(field in columns)) columns[field] = col;
+        const header = norm(cellText(cell.value));
+        const field = HEADER_FIELDS[header];
+        if (field && !(field in columns)) {
+          columns[field] = col;
+          if (header === "domein") legacyDomein = true;
+        }
       });
 
       const result = { sheet: ws.name, leads: [], skipped: { red: [], nocolor: [], empty: 0 } };
@@ -137,7 +142,9 @@
         // Rows without a company (e.g. trade fairs) use the name column as company.
         if (!data.company && data.contact_name) { data.company = data.contact_name; data.contact_name = ""; }
         // Old "Domein" values such as "Dealer Galabau" become Dealer › GaLa Bau.
-        if (!data.subcategory) [data.category, data.subcategory] = Store.splitLegacyCategory(data.category);
+        if (legacyDomein && !data.subcategory) {
+          [data.category, data.subcategory] = Store.splitLegacyCategory(data.category);
+        }
         [data.category, data.subcategory] = Store.normalizeNames(data.category, data.subcategory);
         const label = `Rij ${r} (${data.company || "zonder naam"})`;
 

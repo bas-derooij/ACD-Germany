@@ -401,7 +401,7 @@ function renderFilters() {
     const onlyCategory = groups.length === 1 && !groups[0].subcategory;
     if (onlyCategory) {
       const g = groups[0];
-      html += `<label><input type="checkbox" data-group="${esc(g.key)}" ${selGroups.has(g.key) ? "checked" : ""}>
+      html += `<label class="multi-cat"><input type="checkbox" data-group="${esc(g.key)}" ${selGroups.has(g.key) ? "checked" : ""}>
         <i class="swatch" style="background:${colorOf(g.key)}"></i>${esc(category)} <span class="muted">(${total})</span></label>`;
       continue;
     }

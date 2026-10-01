@@ -83,12 +83,35 @@
     "beurs bezoek": ["Beurs", "Bezoek"],
     "beurs deelname": ["Beurs", "Deelname"],
   };
-  const DATA_VERSION = 4;
+  const DATA_VERSION = 5;
 
-  // Apply renamed categories/subcategories (e.g. Ambassador -> Ambassadeur).
+  // Compare names ignoring case, spaces, hyphens and punctuation ("Monteur - verkoper" = "Monteur-verkoper").
+  const loose = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9äöüß]/g, "");
+  const tidy = (v) => String(v || "").replace(/\s+/g, " ").trim();
+  const escapeRe = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Map a category/subcategory to the fixed names of the taxonomy, so variants such as
+  // "Certified assembler", "certified  Assembler" or "Certified Assembler Monteur"
+  // end up in the existing category instead of becoming a new one.
   function normalizeNames(category, subcategory) {
-    const c = String(category || "").trim(), s = String(subcategory || "").trim();
-    return [CATEGORY_ALIASES[c.toLowerCase()] || c, SUBCATEGORY_ALIASES[s.toLowerCase()] || s];
+    let c = tidy(category), s = tidy(subcategory);
+    c = CATEGORY_ALIASES[loose(c)] || c;
+    s = SUBCATEGORY_ALIASES[loose(s)] || s;
+    let entry = TAXONOMY.find(([name]) => loose(name) === loose(c));
+    if (!entry && !s) {
+      // Category and subcategory written in one field.
+      for (const candidate of TAXONOMY) {
+        const words = candidate[0].split(" ").map(escapeRe).join("[\\s_-]*");
+        const m = c.match(new RegExp(`^${words}[\\s_/›>:-]+(.+)$`, "i"));
+        if (m) { entry = candidate; s = tidy(m[1]); break; }
+      }
+    }
+    if (entry) {
+      c = entry[0];
+      s = SUBCATEGORY_ALIASES[loose(s)] || s;
+      s = entry[1].find((sub) => loose(sub) === loose(s)) || s;
+    }
+    return [c, s];
   }
 
   function splitLegacyCategory(value) {
@@ -157,7 +180,7 @@
         return groupKey({ category, subcategory });
       });
     }
-    // Version 4: Ambassador -> Ambassadeur, Specialisatie -> Gespecialiseerd, Beurs subcategories.
+    // Versions 4-5: names follow the taxonomy (Ambassadeur, Gespecialiseerd, spelling variants).
     for (const lead of db.leads) {
       [lead.category, lead.subcategory] = normalizeNames(lead.category, lead.subcategory);
     }
@@ -190,6 +213,11 @@
       }
     }
     if ((!partial || "company" in out) && !out.company) throw bad("Onderneming is verplicht");
+    if ("category" in out) {
+      const [c, sub] = normalizeNames(out.category, "subcategory" in out ? out.subcategory : "");
+      out.category = c;
+      if ("subcategory" in out || sub) out.subcategory = sub;
+    }
     if ("status" in out) {
       out.status = out.status || "gesprek";
       if (!STATUSES.includes(out.status)) throw bad(`Onbekende status '${out.status}'`);

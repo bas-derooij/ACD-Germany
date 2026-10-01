@@ -63,6 +63,24 @@ test("readRoadmap takes status from colour and skips red rows", async () => {
   assert.equal(fair.contact_name, "", "fairs: name column becomes the company");
 });
 
+test("a Categorie column is used as-is, with spelling variants normalised", async () => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Roadmap");
+  ws.getRow(4).values = ["Categorie", "Subcategorie", "Onderneming", "Status"];
+  ws.getRow(5).values = ["Certified assembler", "Monteur - verkoper", "X GmbH"];
+  ws.getRow(6).values = ["Certified Assembler", "", "Y GmbH"];
+  ws.getRow(7).values = ["Ambassador", "", "Z GmbH"];
+  for (const r of [5, 6, 7]) ws.getRow(r).getCell(4).fill = fill("FF00B050");
+  const loaded = new ExcelJS.Workbook();
+  await loaded.xlsx.load(await wb.xlsx.writeBuffer());
+  const leads = R.readRoadmap(loaded).leads.map((l) => [l.data.category, l.data.subcategory]);
+  assert.deepEqual(leads, [
+    ["Certified Assembler", "Monteur-verkoper"],
+    ["Certified Assembler", ""],
+    ["Ambassadeur", ""],
+  ]);
+});
+
 test("classifyColor", () => {
   assert.equal(R.classifyColor("FFC000"), "gesprek");
   assert.equal(R.classifyColor("FFA500"), "gesprek");

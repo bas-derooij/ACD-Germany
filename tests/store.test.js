@@ -1,7 +1,7 @@
 // Run with: npm test
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createStore, STORAGE_KEY, splitLegacyCategory, groupKey } = require("../docs/store.js");
+const { createStore, STORAGE_KEY, splitLegacyCategory, normalizeNames, groupKey } = require("../docs/store.js");
 
 function memoryStorage() {
   const data = new Map();
@@ -84,6 +84,30 @@ test("version 3 data is renamed (Ambassador, Specialisatie, Beurs)", async () =>
   const s = await store.request("GET", "settings");
   assert.deepEqual(s.excluded_categories, ["Ambassadeur", "Beurs", "Beurs › Bezoek", "Beurs › Deelname"]);
   assert.equal(s.category_colors["Dealer › Gespecialiseerd"], "#1b2a6b");
+});
+
+test("spelling variants map to the existing (sub)categories", async () => {
+  assert.deepEqual(normalizeNames("Certified assembler", "monteur"), ["Certified Assembler", "Monteur"]);
+  assert.deepEqual(normalizeNames(" certified  Assembler ", "Monteur - verkoper"), ["Certified Assembler", "Monteur-verkoper"]);
+  assert.deepEqual(normalizeNames("Certified Assembler Monteur", ""), ["Certified Assembler", "Monteur"]);
+  assert.deepEqual(normalizeNames("dealer", "Galabau"), ["Dealer", "GaLa Bau"]);
+  assert.deepEqual(normalizeNames("Iets anders", "x"), ["Iets anders", "x"]);
+
+  // Stored version 4 data with a variant is merged into the existing category.
+  const storage = memoryStorage();
+  storage.setItem(STORAGE_KEY, JSON.stringify({
+    version: 4, next_lead_id: 3, next_activity_id: 1, activities: [], settings: {},
+    leads: [
+      { id: 1, company: "A", status: "gesprek", category: "Certified assembler", subcategory: "Monteur verkoper" },
+      { id: 2, company: "B", status: "gesprek", category: "Certified Assembler", subcategory: "Monteur" },
+    ],
+  }));
+  const store = createStore(storage);
+  assert.deepEqual((await store.request("GET", "leads")).map(groupKey),
+    ["Certified Assembler › Monteur-verkoper", "Certified Assembler › Monteur"]);
+  // New input is normalised too.
+  const lead = await store.request("POST", "leads", { company: "C", category: "CERTIFIED ASSEMBLER", subcategory: "monteur" });
+  assert.equal(groupKey(lead), "Certified Assembler › Monteur");
 });
 
 test("splitLegacyCategory", () => {

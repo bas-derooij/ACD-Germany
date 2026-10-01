@@ -49,7 +49,7 @@ test("readRoadmap takes status from colour and skips red rows", async () => {
   const [first, second, fair] = res.leads.map((l) => l.data);
   assert.equal(first.category, "Dealer", "old Domein values are split");
   assert.equal(first.subcategory, "GaLa Bau");
-  assert.equal(second.category, "Ambassador");
+  assert.equal(second.category, "Ambassadeur");
   assert.equal(second.subcategory, "");
   assert.equal(first.city, "Kastl");
   assert.equal(first.website, "", "'/' means empty");
@@ -76,20 +76,20 @@ test("classifyColor", () => {
 test("export can be imported again", async () => {
   const leads = [
     { company: "B GmbH", category: "Dealer", subcategory: "GaLa Bau", status: "gesprek", city: "Kastl", next_action: "Bellen", next_action_date: "2026-10-06" },
-    { company: "A GmbH", category: "Ambassador", subcategory: "", status: "samenwerking", city: "Hamburg" },
+    { company: "A GmbH", category: "Ambassador", subcategory: "", status: "samenwerking", city: "Hamburg" }, // old name
     { company: "C", category: "Dealer", subcategory: "Gartencenter", status: "gesprek" },
     { company: "D", category: "Certified Assembler", subcategory: "Monteur", status: "gesprek" },
   ];
   const bySub = R.buildRoadmap(ExcelJS, leads, { groupBy: "subcategory" });
   assert.deepEqual(bySub.worksheets.map((w) => w.name),
-    ["Overzicht", "Dealer › GaLa Bau", "Dealer › Gartencenter", "Certified Assembler › Monteur", "Ambassador"]);
+    ["Overzicht", "Dealer › Gartencenter", "Dealer › GaLa Bau", "Certified Assembler › Monteur", "Ambassador"]);
   const wb = R.buildRoadmap(ExcelJS, leads, { groupBy: "category" });
   assert.deepEqual(wb.worksheets.map((w) => w.name), ["Overzicht", "Dealer", "Certified Assembler", "Ambassador"]);
   const ws = wb.worksheets[0];
   assert.equal(ws.getCell("A4").value, "Categorie");
   assert.equal(ws.getCell("B4").value, "Subcategorie");
-  assert.equal(ws.getCell("C5").value, "B GmbH", "sorted by category, then subcategory");
-  assert.equal(ws.getCell("C6").value, "C");
+  assert.equal(ws.getCell("C5").value, "C", "sorted by category, then subcategory (Gartencenter first)");
+  assert.equal(ws.getCell("C6").value, "B GmbH");
   assert.equal(ws.getCell("J8").value, "Samenwerking");
   assert.equal(ws.getCell("J8").fill.fgColor.argb, "FF00B050");
 
@@ -100,6 +100,7 @@ test("export can be imported again", async () => {
   const b = back.find((l) => l.company === "B GmbH");
   assert.equal(b.status, "gesprek");
   assert.deepEqual([b.category, b.subcategory], ["Dealer", "GaLa Bau"]);
+  assert.equal(back.find((l) => l.company === "A GmbH").category, "Ambassadeur", "old names are renamed on import");
   assert.equal(b.next_action, "Bellen (tegen 06/10/2026)");
 });
 

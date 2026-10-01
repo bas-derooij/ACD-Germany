@@ -20,9 +20,10 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
 
   | Categorie | Subcategorie |
   |---|---|
-  | Dealer | GaLa Bau, Gartencenter, Online retailer, Specialisatie |
+  | Dealer | Gartencenter, GaLa Bau, Gespecialiseerd, Online retailer |
   | Certified Assembler | Monteur, Monteur-verkoper |
-  | Ambassador | (geen) |
+  | Ambassadeur | (geen) |
+  | Beurs | Bezoek, Deelname (alleen zichtbaar in de categoriefilter, niet in de legende) |
 
   Je kunt ook zelf een nieuwe categorie of subcategorie intypen.
 - **Status = kleurcode uit de roadmap**: 🟠 Gesprek, 🟢 Samenwerking, 🔴 Geen samenwerking.
@@ -30,7 +31,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
   - de **vulling** is de kleur van de subcategorie, of van de categorie als er geen subcategorie is (klik in de legende op een kleur om ze te wijzigen);
   - de **rand** is de status (oranje, groen of rood);
   - een **rode stippelring** en een stippellijn met de afstand betekenen *te dicht bij een andere lead*.
-- **Tabblad "Te dichtbij"**: alle paren leads die dichter dan de minimale afstand (standaard 50 km) bij elkaar liggen. Je kiest per (sub)categorie en per status wie meetelt. Standaard tellen alle dealers mee, maar niet Ambassador, Certified Assembler en *Geen samenwerking*.
+- **Tabblad "Te dichtbij"**: alle paren leads die dichter dan de minimale afstand (standaard 50 km) bij elkaar liggen. Je kiest per (sub)categorie en per status wie meetelt. Standaard tellen alle dealers mee, maar niet Ambassadeur, Certified Assembler, Beurs en *Geen samenwerking*.
 - **Filters** (links boven de lijst): zoeken op tekst, en keuzelijsten voor categorie en status waarin je meerdere vakjes tegelijk aanvinkt. Een categorie aanvinken selecteert al haar subcategorieën. Lijst en kaart tonen alleen de gefilterde leads. Met **✕ Filters wissen** zie je weer alle leads op de kaart van Duitsland.
 - **Klik op de kaart** om een plek te controleren: je ziet de dichtstbijzijnde leads en kunt er meteen een nieuwe lead aanmaken.
 - **Activiteitenlog** per lead (telefoon, mail, videocall, bezoek, notitie). Statuswijzigingen worden automatisch gelogd.
@@ -41,7 +42,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
 - **Importeren uit roadmap (Excel)…**: leest een roadmap-bestand in.
   - Alleen **groene en oranje** rijen worden toegevoegd. Rode rijen en rijen zonder kleur worden overgeslagen.
   - Kolom I (Regio Duitsland) wordt niet gebruikt.
-  - Een oude kolom *Domein* wordt automatisch opgesplitst, bv. "Dealer Galabau" → Dealer › GaLa Bau en "Merkambassadeur" → Ambassador.
+  - Een oude kolom *Domein* wordt automatisch opgesplitst, bv. "Dealer Galabau" → Dealer › GaLa Bau en "Merkambassadeur" → Ambassadeur.
   - Bestaande leads met dezelfde ondernemingsnaam worden bijgewerkt.
   - Rijen zonder onderneming (beurzen) krijgen de naam uit kolom C.
   - Daarna zet de app automatisch een pin op de **gemeente** (kolom G).

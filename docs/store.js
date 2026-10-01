@@ -30,16 +30,22 @@
   };
   // Categories and their subcategories, in display order.
   const TAXONOMY = [
-    ["Dealer", ["GaLa Bau", "Gartencenter", "Online retailer", "Specialisatie"]],
+    ["Dealer", ["Gartencenter", "GaLa Bau", "Gespecialiseerd", "Online retailer"]],
     ["Certified Assembler", ["Monteur", "Monteur-verkoper"]],
-    ["Ambassador", []],
+    ["Ambassadeur", []],
+    ["Beurs", ["Bezoek", "Deelname"]],
   ];
+  // Categories shown in the category filter but not in the map legend.
+  const HIDDEN_IN_LEGEND = ["Beurs"];
+  // Earlier names -> current names.
+  const CATEGORY_ALIASES = { "ambassador": "Ambassadeur", "merkambassadeur": "Ambassadeur" };
+  const SUBCATEGORY_ALIASES = { "specialisatie": "Gespecialiseerd" };
   const SEP = " › ";
   // Groups (category, or "category › subcategory") that do not count in the
   // "too close" check unless the user turns them on.
   const DEFAULT_EXCLUDED_CATEGORIES = [
-    "Ambassador", "Certified Assembler", "Certified Assembler › Monteur",
-    "Certified Assembler › Monteur-verkoper", "Beurs",
+    "Ambassadeur", "Certified Assembler", "Certified Assembler › Monteur",
+    "Certified Assembler › Monteur-verkoper", "Beurs", "Beurs › Bezoek", "Beurs › Deelname",
   ];
   const DEFAULT_SETTINGS = {
     min_distance_km: 50,
@@ -52,13 +58,15 @@
     "Dealer › GaLa Bau": "#1f6fd1",
     "Dealer › Gartencenter": "#7b3fbf",
     "Dealer › Online retailer": "#0fa3b1",
-    "Dealer › Specialisatie": "#1b2a6b",
+    "Dealer › Gespecialiseerd": "#1b2a6b",
     "Dealer": "#d147a3",
     "Certified Assembler › Monteur": "#8c5a3c",
     "Certified Assembler › Monteur-verkoper": "#d97706",
     "Certified Assembler": "#78716c",
-    "Ambassador": "#f29bd0",
+    "Ambassadeur": "#f29bd0",
     "Beurs": "#111827",
+    "Beurs › Bezoek": "#111827",
+    "Beurs › Deelname": "#57534e",
   };
   const PALETTE = ["#2563eb", "#9333ea", "#0891b2", "#be185d", "#4d7c0f", "#a16207",
     "#0f766e", "#7c2d12", "#4338ca", "#64748b", "#db2777", "#155e75"];
@@ -67,15 +75,21 @@
     "dealer galabau": ["Dealer", "GaLa Bau"],
     "dealer gartencenter": ["Dealer", "Gartencenter"],
     "dealer online retailer": ["Dealer", "Online retailer"],
-    "dealer gespecialiseerd": ["Dealer", "Specialisatie"],
+    "dealer gespecialiseerd": ["Dealer", "Gespecialiseerd"],
     "dealer/merkambassadeur": ["Dealer", ""],
-    "merkambassadeur": ["Ambassador", ""],
+    "merkambassadeur": ["Ambassadeur", ""],
     "certified assembler": ["Certified Assembler", "Monteur"],
     "galabau verkoper, monteur": ["Certified Assembler", "Monteur-verkoper"],
-    "beurs bezoek": ["Beurs", ""],
-    "beurs deelname": ["Beurs", ""],
+    "beurs bezoek": ["Beurs", "Bezoek"],
+    "beurs deelname": ["Beurs", "Deelname"],
   };
-  const DATA_VERSION = 3;
+  const DATA_VERSION = 4;
+
+  // Apply renamed categories/subcategories (e.g. Ambassador -> Ambassadeur).
+  function normalizeNames(category, subcategory) {
+    const c = String(category || "").trim(), s = String(subcategory || "").trim();
+    return [CATEGORY_ALIASES[c.toLowerCase()] || c, SUBCATEGORY_ALIASES[s.toLowerCase()] || s];
+  }
 
   function splitLegacyCategory(value) {
     const v = String(value || "").trim();
@@ -116,29 +130,45 @@
       if (lead.category === undefined) lead.category = "";
       if (lead.subcategory === undefined) lead.subcategory = "";
     }
-    if ((db.version || 0) < DATA_VERSION) {
-      // Version 3: "Domein" split into Categorie + Subcategorie.
-      const renamed = (old) => {
-        const [category, subcategory] = splitLegacyCategory(old);
-        return groupKey({ category, subcategory });
-      };
-      for (const lead of db.leads) {
-        if (!lead.subcategory) [lead.category, lead.subcategory] = splitLegacyCategory(lead.category);
-      }
-      const settings = db.settings || (db.settings = {});
+    const version = db.version || 0;
+    if (version >= DATA_VERSION) return db;
+    const settings = db.settings || (db.settings = {});
+    // Rename the group keys used in the settings (distance check, colours).
+    const renameKeys = (rename) => {
       if (Array.isArray(settings.excluded_categories)) {
-        settings.excluded_categories = [...new Set(settings.excluded_categories.map(renamed))];
+        settings.excluded_categories = [...new Set(settings.excluded_categories.map(rename))];
       }
       if (settings.category_colors) {
         const colors = {};
         for (const [k, c] of Object.entries(settings.category_colors)) {
-          const key = renamed(k);
+          const key = rename(k);
           if (!colors[key]) colors[key] = KNOWN_CATEGORY_COLORS[key] || c;
         }
         settings.category_colors = colors;
       }
-      db.version = DATA_VERSION;
+    };
+    if (version < 3) {
+      // Version 3: "Domein" split into Categorie + Subcategorie.
+      for (const lead of db.leads) {
+        if (!lead.subcategory) [lead.category, lead.subcategory] = splitLegacyCategory(lead.category);
+      }
+      renameKeys((old) => {
+        const [category, subcategory] = splitLegacyCategory(old);
+        return groupKey({ category, subcategory });
+      });
     }
+    // Version 4: Ambassador -> Ambassadeur, Specialisatie -> Gespecialiseerd, Beurs subcategories.
+    for (const lead of db.leads) {
+      [lead.category, lead.subcategory] = normalizeNames(lead.category, lead.subcategory);
+    }
+    renameKeys((key) => {
+      const [category, subcategory] = normalizeNames(...key.split(SEP));
+      return groupKey({ category, subcategory });
+    });
+    if (settings.excluded_categories && settings.excluded_categories.includes("Beurs")) {
+      settings.excluded_categories = [...new Set([...settings.excluded_categories, "Beurs › Bezoek", "Beurs › Deelname"])];
+    }
+    db.version = DATA_VERSION;
     return db;
   }
 
@@ -211,7 +241,9 @@
     function assignCategoryColors(db) {
       const colors = { ...(db.settings.category_colors || {}) };
       const used = new Set(Object.values(colors));
-      for (const lead of db.leads) {
+      const taxonomyGroups = TAXONOMY.flatMap(([category, subs]) =>
+        (subs.length ? subs : [""]).map((subcategory) => ({ category, subcategory })));
+      for (const lead of [...taxonomyGroups, ...db.leads]) {
         const cat = groupKey(lead);
         if (colors[cat]) continue;
         const color = KNOWN_CATEGORY_COLORS[cat] ||
@@ -419,8 +451,8 @@
   }
 
   const api = {
-    createStore, groupKey, splitLegacyCategory,
-    STATUSES, LEAD_FIELDS, STORAGE_KEY, NO_CATEGORY, TAXONOMY, SEP,
+    createStore, groupKey, splitLegacyCategory, normalizeNames,
+    STATUSES, LEAD_FIELDS, STORAGE_KEY, NO_CATEGORY, TAXONOMY, HIDDEN_IN_LEGEND, SEP,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LeadStore = api;

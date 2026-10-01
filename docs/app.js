@@ -163,9 +163,16 @@ function nearestTo(lat, lng, excludeId, limit = 5) {
     .slice(0, limit);
 }
 
-// Groups in use, sorted like the taxonomy: { key, n, category, subcategory }.
+// Groups (fixed taxonomy + any in use), sorted like the taxonomy: { key, n, category, subcategory }.
 function groupsInUse() {
   const groups = new Map();
+  // The fixed categories/subcategories are always listed (with 0 when empty), then any others in use.
+  for (const [category, subs] of LeadStore.TAXONOMY) {
+    for (const subcategory of subs.length ? subs : [""]) {
+      const key = LeadStore.groupKey({ category, subcategory });
+      groups.set(key, { key, n: 0, category, subcategory });
+    }
+  }
   for (const l of state.leads) {
     const key = categoryOf(l);
     if (!groups.has(key)) {
@@ -181,9 +188,9 @@ function categoriesInUse() {
 }
 
 // Render groups with a header per category; subcategories are indented under it.
-function groupedHtml(itemFn) {
+function groupedHtml(itemFn, groups = groupsInUse()) {
   let html = "", current = null;
-  for (const g of groupsInUse()) {
+  for (const g of groups) {
     const hasSubs = Boolean(g.subcategory) || current === g.category;
     if (g.subcategory && current !== g.category) html += `<div class="group-head">${esc(g.category)}</div>`;
     current = hasSubs ? g.category : null;
@@ -328,12 +335,13 @@ map.on("click", (e) => {
 });
 
 function renderLegend() {
-  const cats = categoriesInUse();
+  // Some categories (Beurs) are only in the category filter, not in the legend.
+  const legendGroups = groupsInUse().filter((g) => !LeadStore.HIDDEN_IN_LEGEND.includes(g.category));
   $("#legendBody").innerHTML = `
     <div class="legend-title">Categorie (vulling)</div>
-    ${cats.length ? groupedHtml((g, label, sub) => `<label class="legend-item${sub ? " sub" : ""}" title="Klik om de kleur te wijzigen">
+    ${legendGroups.length ? groupedHtml((g, label, sub) => `<label class="legend-item${sub ? " sub" : " single"}" title="Klik om de kleur te wijzigen">
         <input type="color" class="cat-color" data-cat="${esc(g.key)}" value="${colorOf(g.key)}">
-        <span>${esc(label)} <span class="muted">(${g.n})</span></span></label>`)
+        <span>${esc(label)} <span class="muted">(${g.n})</span></span></label>`, legendGroups)
       : `<div class="legend-item muted">Nog geen leads</div>`}
     <div class="legend-title">Status (rand)</div>
     ${Object.values(STATUS_INFO).map((s) =>

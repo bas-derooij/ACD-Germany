@@ -138,6 +138,7 @@
         if (!data.company && data.contact_name) { data.company = data.contact_name; data.contact_name = ""; }
         // Old "Domein" values such as "Dealer Galabau" become Dealer › GaLa Bau.
         if (!data.subcategory) [data.category, data.subcategory] = Store.splitLegacyCategory(data.category);
+        [data.category, data.subcategory] = Store.normalizeNames(data.category, data.subcategory);
         const label = `Rij ${r} (${data.company || "zonder naam"})`;
 
         const statusCell = columns.status ? row.getCell(columns.status) : null;

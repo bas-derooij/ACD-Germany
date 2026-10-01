@@ -152,6 +152,14 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
 
+// Red outline of Germany (data in germany.js).
+if (window.GERMANY_BORDER) {
+  L.geoJSON(window.GERMANY_BORDER, {
+    interactive: false,
+    style: { color: "#d00000", weight: 3, opacity: 0.9, fill: false },
+  }).addTo(map);
+}
+
 const layers = {
   circles: L.layerGroup().addTo(map),
   lines: L.layerGroup().addTo(map),
@@ -258,7 +266,8 @@ map.on("click", (e) => {
 function renderLegend() {
   $("#legend").innerHTML = Object.values(STATUS_INFO)
     .map((s) => `<div class="legend-item"><i style="background:${s.color}"></i>${esc(s.label)}</div>`)
-    .join("") + `<div class="legend-item"><i style="background:#fff;border:3px solid #c62828;width:13px;height:13px"></i>Too close</div>`;
+    .join("") + `<div class="legend-item"><i style="background:#fff;border:3px solid #c62828;width:13px;height:13px"></i>Too close</div>` +
+    `<div class="legend-item"><i style="background:#d00000;height:3px;border-radius:0;width:14px"></i>Border of Germany</div>`;
 }
 
 /* ---------------- sidebar ---------------- */

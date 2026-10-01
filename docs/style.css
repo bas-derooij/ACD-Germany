@@ -148,7 +148,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .legend-item i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
 .legend-item i.ring { background: #fff; border: 3px solid; box-sizing: border-box; }
 .legend-item i.halo { border: 2px dashed #c62828; width: 14px; height: 14px; box-sizing: border-box; }
-.legend-item i.line { background: #d00000; height: 3px; border-radius: 0; width: 14px; }
+.legend-item i.line { background: #0b5d1e; height: 3px; border-radius: 0; width: 14px; }
 .legend-item input[type=color] { width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: none; flex: none; }
 .legend-item input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
 .legend-item input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }

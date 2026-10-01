@@ -27,7 +27,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
 
   Je kunt ook zelf een nieuwe categorie of subcategorie intypen.
 - **Status = kleurcode uit de roadmap**: 🟠 Gesprek, 🟢 Samenwerking, 🔴 Geen samenwerking.
-- **Kaart van Duitsland** met een rode lijn langs de grens. Elke lead is een pin:
+- **Kaart van Duitsland** met een donkergroene lijn langs de grens. Elke lead is een pin:
   - de **vulling** is de kleur van de subcategorie, of van de categorie als er geen subcategorie is (klik in de legende op een kleur om ze te wijzigen);
   - de **rand** is de status (oranje, groen of rood);
   - een **rode stippelring** en een stippellijn met de afstand betekenen *te dicht bij een andere lead*.

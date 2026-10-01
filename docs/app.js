@@ -207,11 +207,11 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
-// Red outline of Germany (data in germany.js).
+// Dark green outline of Germany (data in germany.js).
 if (window.GERMANY_BORDER) {
   L.geoJSON(window.GERMANY_BORDER, {
     interactive: false,
-    style: { color: "#d00000", weight: 3, opacity: 0.9, fill: false },
+    style: { color: "#0b5d1e", weight: 3, opacity: 0.9, fill: false },
   }).addTo(map);
 }
 

@@ -22,6 +22,8 @@ const state = {
   picking: false,
   drawerOpenedAt: 0,
   geocoding: null,        // { stop: boolean } while locations are being looked up
+  // Selected filters; an empty set means "everything".
+  filter: { groups: new Set(), statuses: new Set() },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -352,12 +354,10 @@ function renderLegend() {
 /* ---------------- sidebar ---------------- */
 function filteredLeads() {
   const q = $("#search").value.trim().toLowerCase();
-  const status = $("#statusFilter").value;
-  const cat = $("#categoryFilter").value;
+  const { groups, statuses } = state.filter;
   return state.leads.filter((l) => {
-    if (status && l.status !== status) return false;
-    if (cat.startsWith("c:") && (l.category || NO_CATEGORY) !== cat.slice(2)) return false;
-    if (cat.startsWith("g:") && categoryOf(l) !== cat.slice(2)) return false;
+    if (statuses.size && !statuses.has(l.status)) return false;
+    if (groups.size && !groups.has(categoryOf(l))) return false;
     if (!q) return true;
     return [l.company, l.city, l.contact_name, l.state, l.email, l.category, l.subcategory, l.status_info,
       l.next_action, l.notes, l.demo_serre]
@@ -379,27 +379,94 @@ function sortedLeads(list) {
 }
 
 function renderFilters() {
-  const keep = (sel) => $(sel).value;
-  const cat = keep("#categoryFilter"), status = keep("#statusFilter");
-  // Category filter: each category, followed by its subcategories (indented).
-  const options = [["", "Alle categorieën"]];
+  const { groups: selGroups, statuses: selStatuses } = state.filter;
   const perCategory = new Map();
   for (const g of groupsInUse()) {
     if (!perCategory.has(g.category)) perCategory.set(g.category, []);
     perCategory.get(g.category).push(g);
   }
+
+  // Category filter: a checkbox per category (selects all its subcategories) and per subcategory.
+  let html = "";
   for (const [category, groups] of perCategory) {
     const total = groups.reduce((n, g) => n + g.n, 0);
-    options.push(["c:" + category, `${category} (${total})`]);
+    const onlyCategory = groups.length === 1 && !groups[0].subcategory;
+    if (onlyCategory) {
+      const g = groups[0];
+      html += `<label><input type="checkbox" data-group="${esc(g.key)}" ${selGroups.has(g.key) ? "checked" : ""}>
+        <i class="swatch" style="background:${colorOf(g.key)}"></i>${esc(category)} <span class="muted">(${total})</span></label>`;
+      continue;
+    }
+    const nSel = groups.filter((g) => selGroups.has(g.key)).length;
+    html += `<label class="multi-cat"><input type="checkbox" data-category="${esc(category)}"
+      ${nSel === groups.length ? "checked" : ""} ${nSel && nSel < groups.length ? "data-partial" : ""}>
+      ${esc(category)} <span class="muted">(${total})</span></label>`;
     for (const g of groups) {
-      if (g.subcategory) options.push(["g:" + g.key, `\u00a0\u00a0\u00a0${g.subcategory} (${g.n})`]);
+      html += `<label class="sub"><input type="checkbox" data-group="${esc(g.key)}" ${selGroups.has(g.key) ? "checked" : ""}>
+        <i class="swatch" style="background:${colorOf(g.key)}"></i>${esc(g.subcategory || "Zonder subcategorie")}
+        <span class="muted">(${g.n})</span></label>`;
     }
   }
-  fillSelect($("#categoryFilter"), options, cat);
-  fillSelect($("#statusFilter"), [["", "Alle statussen"], ...Object.entries(STATUS_INFO).map(([k, s]) => [k, s.label])], status);
+  const catBox = $("#categoryFilter");
+  catBox.querySelector(".multi-panel").innerHTML = html || `<p class="muted">Nog geen leads</p>`;
+  catBox.querySelectorAll("[data-partial]").forEach((cb) => { cb.indeterminate = true; });
+  catBox.querySelector("summary").textContent = selGroups.size === 0 ? "Alle categorieën"
+    : selGroups.size === 1 ? [...selGroups][0] : `${selGroups.size} (sub)categorieën`;
+  catBox.classList.toggle("active", selGroups.size > 0);
+
+  const statusBox = $("#statusFilter");
+  statusBox.querySelector(".multi-panel").innerHTML = Object.entries(STATUS_INFO).map(([k, s]) =>
+    `<label><input type="checkbox" data-status="${k}" ${selStatuses.has(k) ? "checked" : ""}>
+      <i class="swatch" style="background:${s.color}"></i>${esc(s.label)}
+      <span class="muted">(${state.leads.filter((l) => l.status === k).length})</span></label>`).join("");
+  statusBox.querySelector("summary").textContent = selStatuses.size === 0 ? "Alle statussen"
+    : selStatuses.size === 1 ? STATUS_INFO[[...selStatuses][0]].label : `${selStatuses.size} statussen`;
+  statusBox.classList.toggle("active", selStatuses.size > 0);
+  updateFilterSummary();
+
   const allCategories = [...new Set([...LeadStore.TAXONOMY.map(([c]) => c), ...perCategory.keys()])]
     .filter((c) => c !== NO_CATEGORY);
   $("#categories").innerHTML = allCategories.map((c) => `<option value="${esc(c)}">`).join("");
+}
+
+function filtersActive() {
+  return state.filter.groups.size + state.filter.statuses.size + ($("#search").value.trim() ? 1 : 0);
+}
+
+function updateFilterSummary() {
+  const active = filtersActive();
+  const shown = active ? filteredLeads().length : state.leads.length;
+  $("#filterSummary").textContent = active ? `${shown} van ${state.leads.length} leads getoond` : "";
+  $("#clearFilters").hidden = !active;
+}
+
+// A checkbox in one of the filter dropdowns changed.
+function onFilterChange(e) {
+  const cb = e.target;
+  const { groups, statuses } = state.filter;
+  if (cb.dataset.status) {
+    cb.checked ? statuses.add(cb.dataset.status) : statuses.delete(cb.dataset.status);
+  } else if (cb.dataset.category) {
+    const keys = groupsInUse().filter((g) => g.category === cb.dataset.category).map((g) => g.key);
+    keys.forEach((k) => (cb.checked ? groups.add(k) : groups.delete(k)));
+  } else if (cb.dataset.group) {
+    cb.checked ? groups.add(cb.dataset.group) : groups.delete(cb.dataset.group);
+  }
+  renderFilters();
+  renderList();
+  renderMap();
+}
+
+function clearFilters() {
+  state.filter.groups.clear();
+  state.filter.statuses.clear();
+  $("#search").value = "";
+  document.querySelectorAll(".multi").forEach((d) => { d.open = false; });
+  map.closePopup();
+  renderFilters();
+  renderList();
+  renderMap();
+  map.fitBounds(GERMANY_BOUNDS);
 }
 
 function renderList() {
@@ -871,8 +938,14 @@ async function clearAllLeads() {
 
 /* ---------------- wiring ---------------- */
 function init() {
-  ["#search", "#statusFilter", "#categoryFilter", "#sortBy"].forEach((sel) =>
-    $(sel).addEventListener("input", () => { renderList(); renderMap(); }));
+  ["#search", "#sortBy"].forEach((sel) =>
+    $(sel).addEventListener("input", () => { renderList(); renderMap(); updateFilterSummary(); }));
+  ["#categoryFilter", "#statusFilter"].forEach((sel) => $(sel).addEventListener("change", onFilterChange));
+  $("#clearFilters").addEventListener("click", clearFilters);
+  // Close a filter dropdown when clicking elsewhere, and keep only one open.
+  document.addEventListener("click", (e) => {
+    document.querySelectorAll(".multi").forEach((d) => { if (!d.contains(e.target)) d.open = false; });
+  });
 
   $("#leadList").addEventListener("click", (e) => {
     const item = e.target.closest(".lead-item");

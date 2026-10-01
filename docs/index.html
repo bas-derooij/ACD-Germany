@@ -50,8 +50,14 @@
         <div class="filters">
           <input id="search" type="search" placeholder="Zoek op onderneming, gemeente, contact…">
           <div class="filter-row">
-            <select id="categoryFilter"></select>
-            <select id="statusFilter"></select>
+            <details class="multi" id="categoryFilter">
+              <summary></summary>
+              <div class="multi-panel"></div>
+            </details>
+            <details class="multi" id="statusFilter">
+              <summary></summary>
+              <div class="multi-panel"></div>
+            </details>
             <select id="sortBy">
               <option value="category">Sorteer: Categorie</option>
               <option value="company">Sorteer: Naam</option>
@@ -59,6 +65,10 @@
               <option value="updated_at">Sorteer: Laatst gewijzigd</option>
               <option value="nearest">Sorteer: Dichtstbijzijnde</option>
             </select>
+          </div>
+          <div class="filter-actions">
+            <span id="filterSummary" class="muted"></span>
+            <button id="clearFilters" class="btn small" type="button">✕ Filters wissen</button>
           </div>
         </div>
         <ul id="leadList" class="lead-list"></ul>

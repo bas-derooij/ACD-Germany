@@ -84,6 +84,28 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .filters { padding: 12px; border-bottom: 1px solid var(--border); display: grid; gap: 8px; position: sticky; top: 0; background: var(--panel); z-index: 1; }
 .filters input, .filters select { width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
 .filter-row { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 6px; }
+.multi { position: relative; min-width: 0; }
+.multi summary {
+  list-style: none; cursor: pointer; padding: 7px 22px 7px 8px; border: 1px solid var(--border); border-radius: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; background: var(--panel);
+}
+.multi summary::-webkit-details-marker { display: none; }
+.multi summary::after { content: "▾"; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.multi.active summary { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.multi-panel {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; width: max(100%, 250px); max-height: 340px; overflow: auto;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 6px 8px; display: grid; gap: 2px;
+}
+.multi-panel label { display: flex; align-items: center; gap: 4px; padding: 3px 2px; cursor: pointer; white-space: nowrap; }
+.multi-panel label:hover { background: var(--accent-soft); border-radius: 4px; }
+.multi-panel label.multi-cat { font-weight: 600; margin-top: 4px; }
+.multi-panel input[type=checkbox] { width: auto; margin: 0 2px 0 0; flex: none; }
+.multi-panel .swatch { flex: none; }
+.multi-panel label.sub { padding-left: 20px; }
+.filter-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 0; }
+.filter-actions:has(#clearFilters[hidden]):has(#filterSummary:empty) { display: none; }
+#clearFilters { color: var(--accent); border-color: var(--accent); }
 
 /* ---------- lead list ---------- */
 .lead-list, .conflict-list { list-style: none; margin: 0; padding: 0; }

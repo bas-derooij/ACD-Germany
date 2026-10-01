@@ -6,7 +6,7 @@
   --border: #e3e6eb;
   --accent: rgb(122, 165, 43); /* ACD green: buttons, borders */
   --accent-ink: #4f6e1a;       /* darker shade of the same green for text and links on white */
-  --on-accent: #1c2a06;        /* text on the green */
+  --on-accent: #ffffff;        /* text on the green */
   --accent-soft: #eef5e3;
   --danger: #c62828;
   --danger-soft: #fdecec;

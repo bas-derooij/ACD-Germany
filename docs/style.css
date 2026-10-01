@@ -4,10 +4,10 @@
   --text: #1d2330;
   --muted: #6b7280;
   --border: #e3e6eb;
-  --accent: #8fd18a;       /* light green: buttons, borders */
-  --accent-ink: #2e7d32;   /* darker green for text and links on white */
-  --on-accent: #133a17;    /* text on light green */
-  --accent-soft: #eaf6e8;
+  --accent: rgb(122, 165, 43); /* ACD green: buttons, borders */
+  --accent-ink: #4f6e1a;       /* darker shade of the same green for text and links on white */
+  --on-accent: #1c2a06;        /* text on the green */
+  --accent-soft: #eef5e3;
   --danger: #c62828;
   --danger-soft: #fdecec;
   --warn: #b26a00;

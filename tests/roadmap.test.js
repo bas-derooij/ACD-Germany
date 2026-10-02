@@ -126,6 +126,9 @@ test("placeQueries translates Dutch state names and simplifies place names", () 
   assert.deepEqual(R.placeQueries("Kastl", "Beieren")[0], { city: "Kastl", state: "Bayern" });
   assert.equal(R.germanState("Hessen (Frankfurt)"), "Hessen");
   assert.equal(R.germanState("Noordrijn Westfalen"), "Nordrhein-Westfalen");
+  assert.equal(R.germanState("Opper-Oostenrijk"), "Oberösterreich");
+  assert.equal(R.germanState("Tirol"), "Tirol");
+  assert.deepEqual(R.placeQueries("Innsbruck", "Tirol")[0], { city: "Innsbruck", state: "Tirol" });
   const q = R.placeQueries("Muldestausee Ot Rösa", "Saksen-Anhalt").map((x) => x.city);
   assert.ok(q.includes("Muldestausee"));
   assert.ok(!R.placeQueries("Bad Bellingen", "").some((x) => x.city === "Bad"));

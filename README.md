@@ -27,7 +27,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
 
   Je kunt ook zelf een nieuwe categorie of subcategorie intypen.
 - **Status = kleurcode uit de roadmap**: 🟠 Gesprek, 🟢 Samenwerking, 🔴 Geen samenwerking.
-- **Kaart van Duitsland** met een donkergroene lijn langs de grens. Elke lead is een pin:
+- **Kaart van Duitsland** met een donkergroene lijn rond Duitsland en Oostenrijk, en een lijn op de grens tussen beide. Elke lead is een pin:
   - de **vulling** is de kleur van de subcategorie, of van de categorie als er geen subcategorie is (klik in de legende op een kleur om ze te wijzigen);
   - de **rand** is de status (oranje, groen of rood);
   - een **rode stippelring** en een stippellijn met de afstand betekenen *te dicht bij een andere lead*.
@@ -52,7 +52,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
 
 ### Over het zoeken van locaties
 
-Locaties worden opgezocht via OpenStreetMap (Nominatim). Daarbij worden **alleen de gemeente en de deelstaat** (of het adres dat je zelf invult) verstuurd, nooit namen of contactgegevens.
+Locaties worden opgezocht via OpenStreetMap (Nominatim), in Duitsland en Oostenrijk. Oostenrijkse deelstaten worden herkend in het Nederlands en het Duits (bv. Opper-Oostenrijk / Oberösterreich). Daarbij worden **alleen de gemeente en de deelstaat** (of het adres dat je zelf invult) verstuurd, nooit namen of contactgegevens.
 
 Een pin die automatisch op de gemeente is gezet, staat in het centrum van die gemeente. Bij plaatsnamen die meerdere keren voorkomen (bv. Kastl of Haselbach) kan het de verkeerde zijn. Open de lead en controleer de pin. Je kunt de pin verslepen of met **Kies op de kaart** een andere plek aanklikken.
 
@@ -69,7 +69,7 @@ De site staat in `docs/`:
 - `app.js`: kaart, lijst, formulieren, import en export
 - `store.js`: opslag in de browser (localStorage) en back-ups
 - `roadmap.js`: de roadmap-sheet lezen en schrijven (met ExcelJS)
-- `germany.js`: de grens van Duitsland als vloeiende lijn: vasteland en Rügen (zonder de andere eilanden), smalle waterwegen langs de noordkust opgevuld (Natural Earth, publiek domein; opnieuw te maken met `npm run build:border`)
+- `germany.js`: de grenslijnen als vloeiende lijnen: rond Duitsland (vasteland en Rügen, zonder de andere eilanden, smalle waterwegen langs de noordkust opgevuld) en Oostenrijk samen, plus de grens Duitsland–Oostenrijk (Natural Earth, publiek domein; opnieuw te maken met `npm run build:border`)
 - `vendor/`: Leaflet (kaart) en ExcelJS (Excel)
 
 Lokaal draaien: `python3 -m http.server --directory docs 8000` en open http://localhost:8000.

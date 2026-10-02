@@ -8,7 +8,8 @@ const STATUS_INFO = {
   geen:         { label: "Geen samenwerking",  color: "#FF0000" },
 };
 const NO_CATEGORY = LeadStore.NO_CATEGORY;
-const GERMANY_BOUNDS = [[47.2, 5.8], [55.1, 15.1]];
+// Germany + Austria (the area shown when the app opens and after "Filters wissen").
+const GERMANY_BOUNDS = [[46.3, 5.8], [55.1, 17.2]];
 const CONFLICT_COLOR = "#c62828";
 
 const state = {
@@ -58,7 +59,7 @@ async function geocode(params) {
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastGeocodeAt = Date.now();
   const query = new URLSearchParams({
-    format: "jsonv2", addressdetails: "1", limit: "5", countrycodes: "de", "accept-language": "de",
+    format: "jsonv2", addressdetails: "1", limit: "5", countrycodes: "de,at", "accept-language": "de",
   });
   for (const [k, v] of Object.entries(params)) if (v) query.set(k, v);
   let res;
@@ -87,7 +88,7 @@ async function geocode(params) {
 // Find a municipality, trying a few spellings (see Roadmap.placeQueries).
 async function geocodePlace(city, stateName) {
   for (const q of Roadmap.placeQueries(city, stateName)) {
-    const results = await geocode({ city: q.city, state: q.state, country: "Deutschland" });
+    const results = await geocode({ city: q.city, state: q.state });
     if (results.length) return results[0];
   }
   return null;
@@ -205,15 +206,18 @@ function groupedHtml(itemFn, groups = groupsInUse()) {
 
 /* ---------------- map ---------------- */
 // Gentle mouse-wheel zoom: one wheel click zooms about half a level (Leaflet default is more than one).
-const map = L.map("map", { zoomSnap: 0.25, wheelPxPerZoomLevel: 200 }).fitBounds(GERMANY_BOUNDS);
+const map = L.map("map", { zoomSnap: 0.25, wheelPxPerZoomLevel: 200 });
+// Show Germany + Austria; on wide screens keep the east (Vienna) clear of the legend.
+const fitRegion = () => map.fitBounds(GERMANY_BOUNDS, window.innerWidth > 800 ? { paddingBottomRight: [230, 0] } : {});
+fitRegion();
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
-// Dark green outline of Germany (data in germany.js).
-if (window.GERMANY_BORDER) {
-  L.geoJSON(window.GERMANY_BORDER, {
+// Dark green outline around Germany + Austria and the border between them (data in germany.js).
+if (window.REGION_BORDERS) {
+  L.geoJSON(window.REGION_BORDERS, {
     interactive: false,
     style: { color: "#0b5d1e", weight: 3, opacity: 0.9, fill: false },
   }).addTo(map);
@@ -377,7 +381,7 @@ function renderLegend() {
       `<div class="legend-item"><i class="ring" style="border-color:${s.color}"></i>${esc(s.label)}</div>`).join("")}
     <div class="legend-title">Kaart</div>
     <div class="legend-item"><i class="halo"></i>Te dicht bij elkaar</div>
-    <div class="legend-item"><i class="line"></i>Grens Duitsland</div>`;
+    <div class="legend-item"><i class="line"></i>Grens Duitsland &amp; Oostenrijk</div>`;
   document.querySelectorAll(".cat-color").forEach((input) => input.addEventListener("change", async () => {
     try {
       state.settings = await api("settings", {
@@ -503,7 +507,7 @@ function clearFilters() {
   renderFilters();
   renderList();
   renderMap();
-  map.fitBounds(GERMANY_BOUNDS);
+  fitRegion();
 }
 
 function renderList() {

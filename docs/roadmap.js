@@ -277,6 +277,16 @@
     "saksen-anhalt": "Sachsen-Anhalt", "sachsen-anhalt": "Sachsen-Anhalt",
     "sleeswijk-holstein": "Schleswig-Holstein", "schleswig-holstein": "Schleswig-Holstein",
     "thüringen": "Thüringen", "thuringen": "Thüringen", "thueringen": "Thüringen",
+    // Austria (Dutch and German names)
+    "burgenland": "Burgenland",
+    "karinthië": "Kärnten", "karinthie": "Kärnten", "kärnten": "Kärnten", "karnten": "Kärnten",
+    "neder-oostenrijk": "Niederösterreich", "neder oostenrijk": "Niederösterreich", "niederösterreich": "Niederösterreich",
+    "opper-oostenrijk": "Oberösterreich", "opper oostenrijk": "Oberösterreich", "oberösterreich": "Oberösterreich",
+    "salzburg": "Salzburg", "salzburgerland": "Salzburg",
+    "stiermarken": "Steiermark", "steiermark": "Steiermark",
+    "tirol": "Tirol",
+    "vorarlberg": "Vorarlberg",
+    "wenen": "Wien", "wien": "Wien",
   };
   const germanState = (s) => STATE_NAMES[norm(s)] || "";
 

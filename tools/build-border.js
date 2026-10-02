@@ -1,8 +1,10 @@
 // Usage: npm run build:border [-- <fill distance km> <simplify tolerance degrees>]
-// Builds docs/germany.js, the outline of Germany drawn on the map:
-// - mainland (incl. peninsulas) plus Rügen; the other islands are left out
-// - along the north coast narrow waterways (Bodden, Strelasund, estuaries, fjords) are filled in
-// - the whole outline is simplified and rounded off so it runs smoothly instead of jagged
+// Builds docs/germany.js with the border lines drawn on the map (a GeoJSON FeatureCollection):
+// - "outline": one smooth line around Germany + Austria together
+//   (German mainland incl. peninsulas plus Rügen; other islands left out; narrow waterways along
+//   the north coast such as Bodden, Strelasund, estuaries and fjords filled in)
+// - "de-at": the border between Germany and Austria, drawn once and joined to the outline
+// Both lines are simplified and rounded off so they run smoothly instead of jagged.
 const topo = require('world-atlas/countries-10m.json');
 const { feature } = require('topojson-client');
 const turf = require('@turf/turf');
@@ -17,34 +19,74 @@ const area = (ring) => {
   for (let i = 0; i < ring.length - 1; i++) a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
   return Math.abs(a / 2);
 };
-const largestRing = (geometry) => {
-  const polys = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
-  return polys.reduce((b, p) => (area(p[0]) > area(b[0]) ? p : b))[0];
-};
-
-const de = feature(topo, topo.objects.countries).features.find((f) => f.id === '276');
-const parts = de.geometry.coordinates.map((p) => turf.polygon([p[0]]));
-const mainland = turf.polygon([largestRing(de.geometry)]);
-const islands = parts.filter((p) => KEEP_ISLANDS.some((pt) => turf.booleanPointInPolygon(turf.point(pt), p)));
-const land = turf.union(turf.featureCollection([mainland, ...islands]));
-
-// Fill narrow waterways in the north (closing = grow, then shrink by the same distance).
-const closed = turf.buffer(turf.buffer(land, D_KM, { units: 'kilometers', steps: 16 }), -D_KM, { units: 'kilometers', steps: 16 });
-const fill = turf.intersect(turf.featureCollection([closed, turf.bboxPolygon([0, NORTH_LAT, 20, 60])]));
-const merged = turf.union(turf.featureCollection([land, fill]));
-
-// One outline without holes, simplified and rounded off (Chaikin smoothing).
-let shape = turf.polygon([largestRing(merged.geometry)]);
-shape = turf.simplify(shape, { tolerance: TOLERANCE, highQuality: true });
-shape = turf.polygonSmooth(shape, { iterations: 2 }).features[0];
-
+const polygonsOf = (geometry) => (geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates);
+const largestRing = (geometry) => polygonsOf(geometry).reduce((b, p) => (area(p[0]) > area(b[0]) ? p : b))[0];
 const round = (c) => [Math.round(c[0] * 1e4) / 1e4, Math.round(c[1] * 1e4) / 1e4];
-const coords = [shape.geometry.coordinates[0].map(round)];
-const out = `/* Border of Germany (GeoJSON geometry), drawn as a smooth outline: mainland and Rügen (other
- * islands left out), narrow waterways along the north coast filled in, simplified and rounded off.
+
+// Chaikin corner cutting for an open line; the end points stay where they are.
+function smoothLine(coords, iterations = 2) {
+  let pts = coords;
+  for (let it = 0; it < iterations; it++) {
+    const next = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [a, b] = [pts[i], pts[i + 1]];
+      next.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+      next.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+    }
+    next.push(pts[pts.length - 1]);
+    pts = next;
+  }
+  return pts;
+}
+
+const countries = feature(topo, topo.objects.countries).features;
+const de = countries.find((f) => f.id === '276');
+const at = countries.find((f) => f.id === '040');
+
+// Germany: mainland + Rügen, with the narrow northern waterways filled (closing = grow, then shrink).
+const deMainland = turf.polygon([largestRing(de.geometry)]);
+const islands = polygonsOf(de.geometry).map((p) => turf.polygon([p[0]]))
+  .filter((p) => KEEP_ISLANDS.some((pt) => turf.booleanPointInPolygon(turf.point(pt), p)));
+const deLand = turf.union(turf.featureCollection([deMainland, ...islands]));
+const closed = turf.buffer(turf.buffer(deLand, D_KM, { units: 'kilometers', steps: 16 }), -D_KM, { units: 'kilometers', steps: 16 });
+const fill = turf.intersect(turf.featureCollection([closed, turf.bboxPolygon([0, NORTH_LAT, 20, 60])]));
+const deShape = turf.union(turf.featureCollection([deLand, fill]));
+
+// Outline around Germany + Austria together.
+const atShape = turf.polygon([largestRing(at.geometry)]);
+let outline = turf.polygon([largestRing(turf.union(turf.featureCollection([deShape, atShape])).geometry)]);
+outline = turf.simplify(outline, { tolerance: TOLERANCE, highQuality: true });
+outline = turf.polygonSmooth(outline, { iterations: 2 }).features[0];
+const outlineLine = turf.lineString(outline.geometry.coordinates[0]);
+
+// Border Germany–Austria: the longest run of Austrian border points that also lie on the German border.
+const deVertices = new Set(polygonsOf(de.geometry).flatMap((p) => p[0]).map((c) => c.join(',')));
+const atRing = largestRing(at.geometry).slice(0, -1);
+const start = atRing.findIndex((c) => !deVertices.has(c.join(','))); // begin outside a shared run
+let best = [], run = [];
+for (let k = 0; k <= atRing.length; k++) {
+  const c = atRing[(start + k) % atRing.length];
+  if (deVertices.has(c.join(','))) run.push(c);
+  else { if (run.length > best.length) best = run; run = []; }
+}
+let shared = turf.simplify(turf.lineString(best), { tolerance: TOLERANCE, highQuality: true }).geometry.coordinates;
+shared = smoothLine(shared);
+// Join both ends exactly onto the smoothed outline.
+for (const i of [0, shared.length - 1]) {
+  shared[i] = turf.nearestPointOnLine(outlineLine, turf.point(shared[i])).geometry.coordinates;
+}
+
+const collection = turf.featureCollection([
+  turf.polygon([outline.geometry.coordinates[0].map(round)], { name: 'outline' }),
+  turf.lineString(shared.map(round), { name: 'de-at' }),
+]);
+const out = `/* Border lines drawn on the map (GeoJSON): a smooth outline around Germany and Austria
+ * (German mainland and Rügen, other islands left out, narrow waterways along the north coast
+ * filled in) and the border between Germany and Austria.
  * Source: Natural Earth 1:10m admin-0 countries via world-atlas (public domain).
  * Generated by tools/build-border.js. */
-window.GERMANY_BORDER = ${JSON.stringify({ type: 'Polygon', coordinates: coords })};
+window.REGION_BORDERS = ${JSON.stringify(collection)};
 `;
 require('fs').writeFileSync(process.argv[4] || require('path').join(__dirname, '..', 'docs', 'germany.js'), out);
-console.log(`fill ${D_KM} km, tolerance ${TOLERANCE}°, islands kept ${islands.length}; points ${coords[0].length}, ${out.length} bytes`);
+console.log(`fill ${D_KM} km, tolerance ${TOLERANCE}°; outline ${outline.geometry.coordinates[0].length} points, ` +
+  `DE-AT border ${best.length} -> ${shared.length} points, ${out.length} bytes`);

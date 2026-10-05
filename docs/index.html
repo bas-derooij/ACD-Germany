@@ -13,6 +13,12 @@
       <span class="brand-mark">ACD</span>
       <span class="brand-title">Leads Duitsland</span>
     </div>
+    <form id="placeSearch" class="place-search" autocomplete="off" role="search">
+      <input id="placeQuery" type="search" placeholder="Zoek gemeente of postcode…"
+        aria-label="Zoek een gemeente of postcode om te zien welke leads in de buurt liggen">
+      <button class="btn" type="submit">Zoeken</button>
+      <ul id="placeResults" class="place-results" hidden></ul>
+    </form>
     <div class="topbar-actions">
       <label class="distance-setting" title="Leads die dichter bij elkaar liggen worden gemarkeerd als te dichtbij">
         Min. afstand

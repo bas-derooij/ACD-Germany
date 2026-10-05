@@ -342,30 +342,94 @@ function leadPopup(lead) {
   return div;
 }
 
-// Clicking empty map space: check the location, or set the location while picking.
-map.on("click", (e) => {
-  const { lat, lng } = e.latlng;
-  if (state.picking) {
-    finishPick(lat, lng);
-    return;
-  }
-  const near = nearestTo(lat, lng, null, 3);
+// Popup that shows which leads lie near a location, with a button to create a lead there.
+// prefill: optional form values for the new lead (e.g. city and postcode of a searched place).
+function showLocationCheck(latlng, { title = "Deze locatie controleren", prefill = null, limit = 3 } = {}) {
+  const { lat, lng } = latlng;
+  const near = nearestTo(lat, lng, null, limit);
   const min = Number(state.settings.min_distance_km);
-  const tooClose = near.filter((n) => n.km < min && counts(n.lead));
+  const within = state.leads.filter((l) => hasGeo(l) && counts(l) && haversineKm(lat, lng, l.lat, l.lng) < min);
   const div = document.createElement("div");
   div.className = "popup";
   div.innerHTML = `
-    <h4>Deze locatie controleren</h4>
-    ${near.length ? nearListHtml(near, min) : "<p>Nog geen leads op de kaart.</p>"}
-    <p>${tooClose.length ? `<span class="bad">⚠ ${tooClose.length} lead(s) binnen ${min} km</span>`
-      : `✓ Geen lead binnen ${min} km`}</p>
+    <h4>${esc(title)}</h4>
+    ${near.length ? `<strong>Dichtstbijzijnde leads</strong><ul class="near-list">${near.map((n) =>
+      `<li class="${n.km < min && counts(n.lead) ? "bad" : ""}">${esc(n.lead.company)}
+        <span class="muted">(${esc(categoryOf(n.lead))})</span> – ${fmtKm(n.km)}</li>`).join("")}</ul>`
+      : "<p>Nog geen leads op de kaart.</p>"}
+    <p>${within.length ? `<span class="bad">⚠ ${within.length} lead(s) binnen ${min} km die meetellen in de afstandscheck</span>`
+      : `✓ Geen lead binnen ${min} km die meetelt in de afstandscheck`}</p>
     <button class="btn small" type="button">+ Nieuwe lead hier</button>`;
   div.querySelector("button").addEventListener("click", () => {
     map.closePopup();
-    openDrawer(null, { lat, lng });
+    openDrawer(null, { lat, lng }, prefill);
   });
-  L.popup().setLatLng(e.latlng).setContent(div).openOn(map);
+  L.popup({ maxWidth: 320 }).setLatLng([lat, lng]).setContent(div).openOn(map);
+}
+
+// Clicking empty map space: check the location, or set the location while picking.
+map.on("click", (e) => {
+  if (state.picking) {
+    finishPick(e.latlng.lat, e.latlng.lng);
+    return;
+  }
+  showLocationCheck(e.latlng);
 });
+
+/* ---------------- search a municipality or postcode ---------------- */
+let searchLayer = null;
+
+function clearPlaceSearch() {
+  if (searchLayer) { map.removeLayer(searchLayer); searchLayer = null; }
+  $("#placeResults").hidden = true;
+}
+
+function showPlace(r) {
+  clearPlaceSearch();
+  const min = Number(state.settings.min_distance_km);
+  // Marker plus a dashed circle with the minimum distance around the searched place.
+  searchLayer = L.layerGroup([
+    L.circle([r.lat, r.lng], { radius: min * 1000, color: "#334155", weight: 1.5, dashArray: "6 6", fill: false, interactive: false }),
+    L.marker([r.lat, r.lng], { zIndexOffset: 900, title: r.label }),
+  ]).addTo(map);
+  searchLayer.getLayers()[1].on("click", () => showPlace(r));
+  map.fitBounds(L.latLng(r.lat, r.lng).toBounds(min * 2000 * 1.15), { maxZoom: 11 });
+  const place = [r.postal_code, r.city].filter(Boolean).join(" ") || r.label.split(",")[0];
+  showLocationCheck(r, {
+    title: `In de buurt van ${place}`,
+    prefill: { city: r.city, postal_code: r.postal_code, state: r.state },
+    limit: 5,
+  });
+}
+
+async function searchPlace(e) {
+  e.preventDefault();
+  const q = $("#placeQuery").value.trim();
+  const ul = $("#placeResults");
+  if (!q) return;
+  const button = $("#placeSearch button");
+  button.disabled = true;
+  try {
+    // A 4- or 5-digit number is a postcode (Austria 4, Germany 5 digits).
+    const results = /^\d{4,5}$/.test(q) ? await geocode({ postalcode: q }) : await geocode({ q });
+    if (!results.length) {
+      ul.innerHTML = `<li class="muted">Niets gevonden voor "${esc(q)}" in Duitsland of Oostenrijk.</li>`;
+      ul.hidden = false;
+    } else if (results.length === 1) {
+      showPlace(results[0]);
+    } else {
+      ul.innerHTML = results.map((r, i) => `<li data-i="${i}">${esc(r.label)}</li>`).join("");
+      ul.hidden = false;
+      ul.querySelectorAll("li[data-i]").forEach((li) => li.addEventListener("click", () => {
+        showPlace(results[Number(li.dataset.i)]);
+      }));
+    }
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
 
 function renderLegend() {
   // Some categories (Beurs) are only in the category filter, not in the legend.
@@ -637,7 +701,7 @@ function updateSubcategoryOptions() {
   $("#subcategories").innerHTML = [...new Set([...known, ...used])].map((s) => `<option value="${esc(s)}">`).join("");
 }
 
-function openDrawer(lead, coords = null) {
+function openDrawer(lead, coords = null, prefill = null) {
   state.editing = lead;
   form.reset();
   $("#formError").hidden = true;
@@ -648,6 +712,7 @@ function openDrawer(lead, coords = null) {
     if (!el.name || el.name === "status") continue;
     el.value = lead && lead[el.name] !== null && lead[el.name] !== undefined ? lead[el.name] : "";
   }
+  if (prefill) for (const [k, v] of Object.entries(prefill)) if (v && form[k]) form[k].value = v;
   updateSubcategoryOptions();
   if (coords) setCoords(coords.lat, coords.lng);
   else updateCoordsUI();
@@ -989,6 +1054,11 @@ function init() {
     $(sel).addEventListener("input", () => { renderList(); renderMap(); updateFilterSummary(); }));
   ["#categoryFilter", "#statusFilter"].forEach((sel) => $(sel).addEventListener("change", onFilterChange));
   $("#clearFilters").addEventListener("click", clearFilters);
+  $("#placeSearch").addEventListener("submit", searchPlace);
+  $("#placeQuery").addEventListener("search", () => { if (!$("#placeQuery").value) clearPlaceSearch(); });
+  document.addEventListener("click", (e) => {
+    if (!$("#placeSearch").contains(e.target)) $("#placeResults").hidden = true;
+  });
   // Close a filter dropdown when clicking elsewhere, and keep only one open.
   document.addEventListener("click", (e) => {
     document.querySelectorAll(".multi").forEach((d) => { if (!d.contains(e.target)) d.open = false; });

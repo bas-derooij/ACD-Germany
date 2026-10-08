@@ -95,7 +95,7 @@ test("export can be imported again", async () => {
   const leads = [
     { company: "B GmbH", category: "Dealer", subcategory: "GaLa Bau", status: "gesprek", city: "Kastl", next_action: "Bellen", next_action_date: "2026-10-06" },
     { company: "A GmbH", category: "Ambassador", subcategory: "", status: "samenwerking", city: "Hamburg" }, // old name
-    { company: "C", category: "Dealer", subcategory: "Gartencenter", status: "gesprek" },
+    { company: "C", category: "Dealer", subcategory: "Gartencenter", status: "gesprek", country: "BE" },
     { company: "D", category: "Certified Assembler", subcategory: "Monteur", status: "gesprek" },
   ];
   const bySub = R.buildRoadmap(ExcelJS, leads, { groupBy: "subcategory" });
@@ -118,6 +118,7 @@ test("export can be imported again", async () => {
   const b = back.find((l) => l.company === "B GmbH");
   assert.equal(b.status, "gesprek");
   assert.deepEqual([b.category, b.subcategory], ["Dealer", "GaLa Bau"]);
+  assert.equal(back.find((l) => l.company === "C").country, "België", "Land column is exported and read back");
   assert.equal(back.find((l) => l.company === "A GmbH").category, "Ambassadeur", "old names are renamed on import");
   assert.equal(b.next_action, "Bellen (tegen 06/10/2026)");
 });

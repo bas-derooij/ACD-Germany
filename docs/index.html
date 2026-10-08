@@ -134,9 +134,10 @@
         <fieldset>
           <legend>Locatie</legend>
           <label>Locatie (gemeente)<input name="city"></label>
-          <label>Deelstaat<input name="state" list="states"></label>
-          <label>Straat &amp; nr. (optioneel)<input name="street"></label>
+          <label>Land<select name="country"></select></label>
+          <label>Deelstaat / provincie<input name="state" list="states"></label>
           <label>Postcode (optioneel)<input name="postal_code" inputmode="numeric"></label>
+          <label class="full">Straat &amp; nr. (optioneel)<input name="street"></label>
           <div class="full geo-row">
             <button id="geocodeBtn" class="btn" type="button">Zoek op de kaart</button>
             <button id="pickBtn" class="btn ghost" type="button">Kies op de kaart</button>

@@ -26,6 +26,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
   | Beurs | Bezoek, Deelname (alleen zichtbaar in de categoriefilter, niet in de legende) |
 
   Je kunt ook zelf een nieuwe categorie of subcategorie intypen.
+- **Land**: leads kunnen in Duitsland, Oostenrijk, Nederland, België of Frankrijk liggen, bv. dealers net over de Duitse grens die ook in Duitsland verkopen. Ze tellen mee in de afstandscheck en "Dichtstbijzijnde" zoals elke andere lead. In de lijst staat het land achter de gemeente, bv. "Venlo (NL)". Bij "Zoek op de kaart" en in de zoekbalk wordt het land automatisch ingevuld. In Excel staat het in de kolom **Land** (achteraan).
 - **Status = kleurcode uit de roadmap**: 🟠 Gesprek, 🟢 Samenwerking, 🔴 Geen samenwerking.
 - **Kaart van Duitsland** met een donkergroene lijn rond Duitsland en Oostenrijk, en een lijn op de grens tussen beide. Elke lead is een pin:
   - de **vulling** is de kleur van de subcategorie, of van de categorie als er geen subcategorie is (klik in de legende op een kleur om ze te wijzigen);
@@ -34,7 +35,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
   - een **klein cijfer** naast een pin betekent dat er meerdere zichtbare leads op precies dezelfde plek liggen (bv. in dezelfde gemeente). De popup van die pin toont de andere leads op die plek. Het cijfer houdt rekening met je filters.
 - **Tabblad "Te dichtbij"**: alle paren leads die dichter dan de minimale afstand (standaard 50 km) bij elkaar liggen. Je kiest per (sub)categorie en per status wie meetelt. Standaard tellen alle dealers mee, maar niet Ambassadeur, Certified Assembler, Beurs en *Geen samenwerking*.
 - **Filters** (links boven de lijst): zoeken op tekst, en keuzelijsten voor categorie en status waarin je meerdere vakjes tegelijk aanvinkt. Een categorie aanvinken selecteert al haar subcategorieën. Lijst en kaart tonen alleen de gefilterde leads. Met **✕ Filters wissen** zie je weer alle leads op de kaart van Duitsland.
-- **Zoekbalk bovenaan**: zoek een gemeente of postcode (Duitsland en Oostenrijk) die nog geen lead is. De kaart springt erheen, toont een stippelcirkel met de minimale afstand en een popup met de dichtstbijzijnde leads (met categorie en afstand) en hoeveel leads binnen de minimale afstand liggen. Met **+ Nieuwe lead hier** maak je meteen een lead aan met gemeente en postcode al ingevuld. Komt een naam vaker voor (bv. Neustadt), dan kies je uit een lijstje.
+- **Zoekbalk bovenaan**: zoek een gemeente of postcode (Duitsland, Oostenrijk, Nederland, België en Frankrijk) die nog geen lead is. De kaart springt erheen, toont een stippelcirkel met de minimale afstand en een popup met de dichtstbijzijnde leads (met categorie en afstand) en hoeveel leads binnen de minimale afstand liggen. Met **+ Nieuwe lead hier** maak je meteen een lead aan met gemeente en postcode al ingevuld. Komt een naam vaker voor (bv. Neustadt), dan kies je uit een lijstje.
 - **Klik op de kaart** om een plek te controleren: je ziet de dichtstbijzijnde leads en kunt er meteen een nieuwe lead aanmaken.
 - **Activiteitenlog** per lead (telefoon, mail, videocall, bezoek, notitie). Statuswijzigingen worden automatisch gelogd.
 
@@ -53,7 +54,7 @@ Je leads worden **in de browser op je eigen computer** bewaard, niet online en n
 
 ### Over het zoeken van locaties
 
-Locaties worden opgezocht via OpenStreetMap (Nominatim), in Duitsland en Oostenrijk. Oostenrijkse deelstaten worden herkend in het Nederlands en het Duits (bv. Opper-Oostenrijk / Oberösterreich). Daarbij worden **alleen de gemeente en de deelstaat** (of het adres dat je zelf invult) verstuurd, nooit namen of contactgegevens.
+Locaties worden opgezocht via OpenStreetMap (Nominatim), in Duitsland, Oostenrijk, Nederland, België en Frankrijk. Oostenrijkse deelstaten worden herkend in het Nederlands en het Duits (bv. Opper-Oostenrijk / Oberösterreich). Daarbij worden **alleen de gemeente en de deelstaat** (of het adres dat je zelf invult) verstuurd, nooit namen of contactgegevens.
 
 Een pin die automatisch op de gemeente is gezet, staat in het centrum van die gemeente. Bij plaatsnamen die meerdere keren voorkomen (bv. Kastl of Haselbach) kan het de verkeerde zijn. Open de lead en controleer de pin. Je kunt de pin verslepen of met **Kies op de kaart** een andere plek aanklikken.
 

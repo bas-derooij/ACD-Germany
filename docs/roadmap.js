@@ -28,6 +28,7 @@
     "website": "website",
     "locatie": "city",
     "deelstaat": "state",
+    "land": "country",
     "status": "status",
     "status informatie": "status_info",
     "volgende actie": "next_action",
@@ -41,6 +42,7 @@
     ["Locatie", "city", 20], ["Deelstaat", "state", 20], ["Status", "status", 18],
     ["Status informatie", "status_info", 45], ["Volgende actie", "next_action", 35],
     ["Laatste bezoek", "last_visit", 15], ["Demo-serre", "demo_serre", 20], ["Notitie", "notes", 45],
+    ["Land", "country", 14],
   ];
   const EMPTY_MARKERS = new Set(["/", "?", "-"]);
 
@@ -224,6 +226,7 @@
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + info.color } };
           cell.font = { bold: true, color: { argb: lead.status === "gesprek" ? "FF000000" : "FFFFFFFF" } };
         }
+        if (field === "country") value = Store.COUNTRIES[lead.country] || lead.country || "";
         if (field === "next_action" && lead.next_action_date) {
           const [y, m, d] = lead.next_action_date.split("-");
           value = `${value}${value ? " " : ""}(tegen ${d}/${m}/${y})`;

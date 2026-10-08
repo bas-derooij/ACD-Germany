@@ -8,6 +8,12 @@ const STATUS_INFO = {
   geen:         { label: "Geen samenwerking",  color: "#FF0000" },
 };
 const NO_CATEGORY = LeadStore.NO_CATEGORY;
+// Countries where leads can be: Germany, Austria and dealers just across the border.
+const COUNTRIES = LeadStore.COUNTRIES;
+const ALL_COUNTRY_CODES = Object.keys(COUNTRIES).join(",").toLowerCase();
+const countryName = (code) => COUNTRIES[code] || code || "";
+// "Venlo (NL)": municipality with the country code for leads outside Germany.
+const placeOf = (l) => (l.city || "?") + (l.country && l.country !== "DE" ? ` (${l.country})` : "");
 // Germany + Austria (the area shown when the app opens and after "Filters wissen").
 const GERMANY_BOUNDS = [[46.3, 5.8], [55.1, 17.2]];
 const CONFLICT_COLOR = "#c62828";
@@ -59,7 +65,7 @@ async function geocode(params) {
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastGeocodeAt = Date.now();
   const query = new URLSearchParams({
-    format: "jsonv2", addressdetails: "1", limit: "5", countrycodes: "de,at", "accept-language": "de",
+    format: "jsonv2", addressdetails: "1", limit: "5", countrycodes: ALL_COUNTRY_CODES, "accept-language": "de",
   });
   for (const [k, v] of Object.entries(params)) if (v) query.set(k, v);
   let res;
@@ -78,18 +84,23 @@ async function geocode(params) {
       street: [a.road, a.house_number].filter(Boolean).join(" "),
       postal_code: a.postcode || "",
       city: a.city || a.town || a.village || a.municipality || "",
-      state: a.state || "",
+      state: a.state || a.province || "",
+      country: (a.country_code || "").toUpperCase(),
     };
   });
   geocodeCache.set(key, results);
   return results;
 }
 
-// Find a municipality, trying a few spellings (see Roadmap.placeQueries).
-async function geocodePlace(city, stateName) {
-  for (const q of Roadmap.placeQueries(city, stateName)) {
-    const results = await geocode({ city: q.city, state: q.state });
-    if (results.length) return results[0];
+// Find a municipality, trying a few spellings (see Roadmap.placeQueries). Searches the lead's
+// country when known; otherwise Germany/Austria first and then the neighbouring countries.
+async function geocodePlace(city, stateName, country = "") {
+  const scopes = country ? [country.toLowerCase()] : ["de,at", ALL_COUNTRY_CODES];
+  for (const countrycodes of scopes) {
+    for (const q of Roadmap.placeQueries(city, stateName)) {
+      const results = await geocode({ city: q.city, state: q.state, countrycodes });
+      if (results.length) return results[0];
+    }
   }
   return null;
 }
@@ -328,7 +339,7 @@ function leadPopup(lead) {
   div.innerHTML = `
     <h4>${esc(lead.company)}</h4>
     <p>${statusBadge(lead.status)} <span class="cat-chip"><i style="background:${colorOf(cat)}"></i>${esc(cat)}</span></p>
-    <p>${esc([lead.city, lead.state].filter(Boolean).join(", "))}</p>
+    <p>${esc([lead.city, lead.state, lead.country && lead.country !== "DE" ? countryName(lead.country) : ""].filter(Boolean).join(", "))}</p>
     ${lead.contact_name ? `<p>${esc(lead.contact_name)}${lead.phone ? " · " + esc(lead.phone) : ""}</p>` : ""}
     ${lead.status_info ? `<p class="muted">${esc(lead.status_info)}</p>` : ""}
     ${near.length ? `<strong>Dichtstbijzijnde leads</strong>${nearListHtml(near, min)}` : ""}
@@ -394,10 +405,11 @@ function showPlace(r) {
   ]).addTo(map);
   searchLayer.getLayers()[1].on("click", () => showPlace(r));
   map.fitBounds(L.latLng(r.lat, r.lng).toBounds(min * 2000 * 1.15), { maxZoom: 11 });
-  const place = [r.postal_code, r.city].filter(Boolean).join(" ") || r.label.split(",")[0];
+  const place = ([r.postal_code, r.city].filter(Boolean).join(" ") || r.label.split(",")[0]) +
+    (r.country && r.country !== "DE" ? ` (${countryName(r.country)})` : "");
   showLocationCheck(r, {
     title: `In de buurt van ${place}`,
-    prefill: { city: r.city, postal_code: r.postal_code, state: r.state },
+    prefill: { city: r.city, postal_code: r.postal_code, state: r.state, country: COUNTRIES[r.country] ? r.country : "" },
     limit: 5,
   });
 }
@@ -413,7 +425,7 @@ async function searchPlace(e) {
     // A 4- or 5-digit number is a postcode (Austria 4, Germany 5 digits).
     const results = /^\d{4,5}$/.test(q) ? await geocode({ postalcode: q }) : await geocode({ q });
     if (!results.length) {
-      ul.innerHTML = `<li class="muted">Niets gevonden voor "${esc(q)}" in Duitsland of Oostenrijk.</li>`;
+      ul.innerHTML = `<li class="muted">Niets gevonden voor "${esc(q)}" in Duitsland, Oostenrijk, Nederland, België of Frankrijk.</li>`;
       ul.hidden = false;
     } else if (results.length === 1) {
       showPlace(results[0]);
@@ -464,7 +476,7 @@ function filteredLeads() {
     if (statuses.size && !statuses.has(l.status)) return false;
     if (groups.size && !groups.has(categoryOf(l))) return false;
     if (!q) return true;
-    return [l.company, l.city, l.contact_name, l.state, l.email, l.category, l.subcategory, l.status_info,
+    return [l.company, l.city, l.contact_name, l.state, countryName(l.country), l.email, l.category, l.subcategory, l.status_info,
       l.next_action, l.notes, l.demo_serre]
       .some((v) => (v || "").toLowerCase().includes(q));
   });
@@ -603,7 +615,7 @@ function renderList() {
       <span class="dot" style="background:${colorOf(cat)};border-color:${statusOf(l.status).color}"></span>
       <span class="name">${esc(l.company)}</span>
       ${statusBadge(l.status)}
-      <div class="sub">${esc(cat)} · ${esc(l.city || "—")}${l.contact_name ? " · " + esc(l.contact_name) : ""}</div>
+      <div class="sub">${esc(cat)} · ${esc(l.city ? placeOf(l) : "—")}${l.contact_name ? " · " + esc(l.contact_name) : ""}</div>
       ${l.next_action ? `<div class="sub next">➜ ${esc(l.next_action)}${l.next_action_date ? " (" + esc(l.next_action_date.split("-").reverse().join("/")) + ")" : ""}</div>` : ""}
       ${nearHtml}
     </li>`;
@@ -634,8 +646,8 @@ function renderConflicts() {
   $("#conflictList").innerHTML = n
     ? state.conflicts.map((c, i) => `<li class="conflict-item" data-idx="${i}">
         <span class="dist">${fmtKm(c.km)}</span>
-        <div class="pair">${esc(c.a.company)} <span>(${esc(c.a.city || "?")}, ${esc(categoryOf(c.a))})</span></div>
-        <div class="pair">↔ ${esc(c.b.company)} <span>(${esc(c.b.city || "?")}, ${esc(categoryOf(c.b))})</span></div>
+        <div class="pair">${esc(c.a.company)} <span>(${esc(placeOf(c.a))}, ${esc(categoryOf(c.a))})</span></div>
+        <div class="pair">↔ ${esc(c.b.company)} <span>(${esc(placeOf(c.b))}, ${esc(categoryOf(c.b))})</span></div>
       </li>`).join("")
     : `<li class="empty">✓ Geen leads die dichter dan ${min} km bij elkaar liggen.</li>`;
 }
@@ -708,8 +720,9 @@ function openDrawer(lead, coords = null, prefill = null) {
   $("#geoResults").hidden = true;
   $("#drawerTitle").textContent = lead ? lead.company : "Nieuwe lead";
   fillSelect(form.status, Object.entries(STATUS_INFO).map(([k, s]) => [k, s.label]), lead?.status || "gesprek");
+  fillSelect(form.country, [["", "—"], ...Object.entries(COUNTRIES)], lead ? lead.country || "" : "DE");
   for (const el of form.elements) {
-    if (!el.name || el.name === "status") continue;
+    if (!el.name || el.name === "status" || el.name === "country") continue;
     el.value = lead && lead[el.name] !== null && lead[el.name] !== undefined ? lead[el.name] : "";
   }
   if (prefill) for (const [k, v] of Object.entries(prefill)) if (v && form[k]) form[k].value = v;
@@ -780,6 +793,7 @@ function removeDraftMarker() {
 async function geocodeAddress() {
   const street = form.street.value.trim(), plz = form.postal_code.value.trim();
   const city = form.city.value.trim(), stateName = form.state.value.trim();
+  const country = form.country.value;
   if (!street && !plz && !city) { toast("Vul eerst een gemeente, postcode of adres in.", true); return; }
   const btn = $("#geocodeBtn");
   btn.disabled = true;
@@ -787,9 +801,12 @@ async function geocodeAddress() {
   try {
     let results;
     if (street || plz) {
-      results = await geocode({ q: [street, [plz, city].filter(Boolean).join(" ")].filter(Boolean).join(", ") });
+      results = await geocode({
+        q: [street, [plz, city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+        countrycodes: country ? country.toLowerCase() : ALL_COUNTRY_CODES,
+      });
     } else {
-      const r = await geocodePlace(city, stateName);
+      const r = await geocodePlace(city, stateName, country);
       results = r ? [r] : [];
     }
     const ul = $("#geoResults");
@@ -803,6 +820,7 @@ async function geocodeAddress() {
         for (const k of ["street", "postal_code", "city"]) {
           if (!form[k].value.trim() && r[k]) form[k].value = r[k];
         }
+        if (r.country && COUNTRIES[r.country]) form.country.value = r.country;
         ul.hidden = true;
         map.setView([r.lat, r.lng], 10);
       }));
@@ -957,9 +975,11 @@ async function geocodeMissing() {
     for (let i = 0; i < todo.length && !job.stop; i++) {
       const lead = todo[i];
       $("#geoProgressText").textContent = `Locaties zoeken… ${i + 1}/${todo.length}: ${lead.city}`;
-      const r = await geocodePlace(lead.city, lead.state);
+      const r = await geocodePlace(lead.city, lead.state, lead.country);
       if (!r) { notFound.push(`${lead.company} (${lead.city})`); continue; }
-      await api(`leads/${lead.id}`, { method: "PUT", body: { lat: r.lat, lng: r.lng, geo_auto: "1" } });
+      const update = { lat: r.lat, lng: r.lng, geo_auto: "1" };
+      if (!lead.country && COUNTRIES[r.country]) update.country = r.country;
+      await api(`leads/${lead.id}`, { method: "PUT", body: update });
       found++;
       if (found % 5 === 0) await reload();
     }

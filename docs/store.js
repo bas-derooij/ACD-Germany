@@ -18,6 +18,7 @@
     street: "str", postal_code: "str",
     city: "str",            // Locatie (gemeente)
     state: "str",           // Deelstaat
+    country: "str",         // Land: ISO code (DE, AT, NL, BE, FR)
     lat: "float", lng: "float",
     geo_auto: "str",        // "1" when the pin was placed automatically from the municipality
     status: "str",          // Status (colour)
@@ -83,7 +84,25 @@
     "beurs bezoek": ["Beurs", "Bezoek"],
     "beurs deelname": ["Beurs", "Deelname"],
   };
-  const DATA_VERSION = 6;
+  const DATA_VERSION = 7;
+
+  // Countries a lead can be in (ISO code -> name shown in the app).
+  const COUNTRIES = { DE: "Duitsland", AT: "Oostenrijk", NL: "Nederland", BE: "België", FR: "Frankrijk" };
+  const COUNTRY_ALIASES = {
+    de: "DE", duitsland: "DE", deutschland: "DE", germany: "DE", allemagne: "DE",
+    at: "AT", oostenrijk: "AT", österreich: "AT", osterreich: "AT", austria: "AT", autriche: "AT",
+    nl: "NL", nederland: "NL", niederlande: "NL", netherlands: "NL", holland: "NL", paysbas: "NL",
+    be: "BE", belgië: "BE", belgie: "BE", belgien: "BE", belgium: "BE", belgique: "BE",
+    fr: "FR", frankrijk: "FR", frankreich: "FR", france: "FR",
+  };
+  const AUSTRIAN_STATES = new Set(["burgenland", "karinthië", "karinthie", "kärnten", "karnten", "nederoostenrijk",
+    "niederösterreich", "opperoostenrijk", "oberösterreich", "salzburg", "salzburgerland", "stiermarken",
+    "steiermark", "tirol", "vorarlberg", "wenen", "wien"]);
+
+  // Country name or code (any language above) -> ISO code; unknown -> "".
+  function normalizeCountry(value) {
+    return COUNTRY_ALIASES[String(value || "").toLowerCase().replace(/[^a-zäöüë]/g, "")] || "";
+  }
   // Colours changed on request; applied to stored settings once (data version 6).
   const UPDATED_COLORS_V6 = ["Dealer › GaLa Bau", "Dealer › Gartencenter", "Dealer › Gespecialiseerd"];
 
@@ -197,6 +216,12 @@
     if (version < 6 && settings.category_colors) {
       for (const key of UPDATED_COLORS_V6) settings.category_colors[key] = KNOWN_CATEGORY_COLORS[key];
     }
+    if (version < 7) {
+      // Version 7: field "Land". Existing leads are German, or Austrian when the state says so.
+      for (const lead of db.leads) {
+        if (!lead.country) lead.country = AUSTRIAN_STATES.has(loose(lead.state)) ? "AT" : "DE";
+      }
+    }
     db.version = DATA_VERSION;
     return db;
   }
@@ -219,6 +244,7 @@
       }
     }
     if ((!partial || "company" in out) && !out.company) throw bad("Onderneming is verplicht");
+    if ("country" in out) out.country = normalizeCountry(out.country);
     if ("category" in out) {
       const [c, sub] = normalizeNames(out.category, "subcategory" in out ? out.subcategory : "");
       out.category = c;
@@ -485,7 +511,7 @@
   }
 
   const api = {
-    createStore, groupKey, splitLegacyCategory, normalizeNames,
+    createStore, groupKey, splitLegacyCategory, normalizeNames, normalizeCountry, COUNTRIES,
     STATUSES, LEAD_FIELDS, STORAGE_KEY, NO_CATEGORY, TAXONOMY, HIDDEN_IN_LEGEND, SEP,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

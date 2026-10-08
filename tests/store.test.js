@@ -1,7 +1,7 @@
 // Run with: npm test
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createStore, STORAGE_KEY, splitLegacyCategory, normalizeNames, groupKey } = require("../docs/store.js");
+const { createStore, STORAGE_KEY, splitLegacyCategory, normalizeNames, normalizeCountry, groupKey } = require("../docs/store.js");
 
 function memoryStorage() {
   const data = new Map();
@@ -120,6 +120,23 @@ test("version 5 colours for Gartencenter, GaLa Bau and Gespecialiseerd are updat
   assert.deepEqual([c["Dealer › Gartencenter"], c["Dealer › GaLa Bau"], c["Dealer › Gespecialiseerd"]], ["#1b5e20", "#c2410c", "#d32f2f"]);
   assert.equal(c["Dealer › Online retailer"], "#0fa3b1");
   assert.equal(c["Ambassadeur"], "#123456", "other colours are kept");
+});
+
+test("country: names are normalised and existing leads get DE or AT", async () => {
+  assert.deepEqual(["Nederland", "België", "Belgique", "frankrijk", "Österreich", "DE", "Luxemburg"].map(normalizeCountry),
+    ["NL", "BE", "BE", "FR", "AT", "DE", ""]);
+  const storage = memoryStorage();
+  storage.setItem(STORAGE_KEY, JSON.stringify({
+    version: 6, next_lead_id: 3, next_activity_id: 1, activities: [], settings: {},
+    leads: [
+      { id: 1, company: "A", status: "gesprek", category: "Dealer", subcategory: "GaLa Bau", state: "Beieren" },
+      { id: 2, company: "B", status: "gesprek", category: "Dealer", subcategory: "GaLa Bau", state: "Tirol" },
+    ],
+  }));
+  const store = createStore(storage);
+  assert.deepEqual((await store.request("GET", "leads")).map((l) => l.country), ["DE", "AT"]);
+  const nl = await store.request("POST", "leads", { company: "Venlo Tuin", country: "Nederland", city: "Venlo" });
+  assert.equal(nl.country, "NL");
 });
 
 test("splitLegacyCategory", () => {

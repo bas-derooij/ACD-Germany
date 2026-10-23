@@ -527,8 +527,13 @@ function renderFilters() {
   const catBox = $("#categoryFilter");
   catBox.querySelector(".multi-panel").innerHTML = html || `<p class="muted">Nog geen leads</p>`;
   catBox.querySelectorAll("[data-partial]").forEach((cb) => { cb.indeterminate = true; });
+  // Name whole categories (all their subcategories ticked), e.g. "Dealer, Certified Assembler".
+  const fullCategories = [...perCategory].filter(([, groups]) => groups.every((g) => selGroups.has(g.key)));
+  const coveredByFull = fullCategories.reduce((n, [, groups]) => n + groups.length, 0) === selGroups.size;
   catBox.querySelector("summary").textContent = selGroups.size === 0 ? "Alle categorieën"
+    : coveredByFull ? fullCategories.map(([c]) => c).join(", ")
     : selGroups.size === 1 ? [...selGroups][0] : `${selGroups.size} (sub)categorieën`;
+  catBox.querySelector("summary").title = catBox.querySelector("summary").textContent;
   catBox.classList.toggle("active", selGroups.size > 0);
 
   const statusBox = $("#statusFilter");
@@ -568,6 +573,19 @@ function onFilterChange(e) {
     keys.forEach((k) => (cb.checked ? groups.add(k) : groups.delete(k)));
   } else if (cb.dataset.group) {
     cb.checked ? groups.add(cb.dataset.group) : groups.delete(cb.dataset.group);
+  }
+  renderFilters();
+  renderList();
+  renderMap();
+}
+
+// Categories that are ticked in the category filter when the app opens (can be unticked).
+const DEFAULT_FILTER_CATEGORIES = ["Dealer", "Certified Assembler"];
+
+function applyDefaultFilters() {
+  state.filter.groups.clear();
+  for (const g of groupsInUse()) {
+    if (DEFAULT_FILTER_CATEGORIES.includes(g.category)) state.filter.groups.add(g.key);
   }
   renderFilters();
   renderList();
@@ -1189,7 +1207,7 @@ function init() {
       "Download een back-up voor je afsluit.", true, 15000);
   }
 
-  reload().catch((err) => toast("Leads laden mislukt: " + err.message, true));
+  reload().then(applyDefaultFilters).catch((err) => toast("Leads laden mislukt: " + err.message, true));
 }
 
 init();
